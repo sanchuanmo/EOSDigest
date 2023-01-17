@@ -1,0 +1,37 @@
+{
+    "PolyConfig":{
+      "RestURL":"http://117.107.141.162:40236",
+      "EntranceContractAddress":"0300000000000000000000000000000000000000",
+      "WalletFile":"./wallet2.dat",
+      "WalletPwd":"4cUYqGj2yib718E7ZmGQc"
+    },
+    "EOSConfig":{
+      "SideChainId": 91, 
+      "RestURL":"http://172.17.0.2:8888",
+      "StoreAccounts": [
+        {
+          "accountName":"janifer",
+          "privateKey" : "5JvypYCUAKnKpe2zDdtNrMcMR2XXPiHPUNhEEhT7oW8kNabd13G"
+        },
+        {
+          "accountName":"jarry",
+          "privateKey" : "5JvypYCUAKnKpe2zDdtNrMcMR2XXPiHPUNhEEhT7oW8kNabd13G"
+        }
+      ],
+            
+      "BlockConfig": 12, 
+      "HeadersPerBatch": 2000, 
+      "MonitorInterval": 3 ,
+      "contractAddress" : "ddcccmanager"
+    },
+    "BoltDbPath": "./db", 
+    "RoutineNum": 10,
+    "TargetContracts": [
+      {
+        "ddc.contract": { 
+          "inbound": [91], 
+          "outbound": [91]
+        }
+      }
+    ]
+  }
