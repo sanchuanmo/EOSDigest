@@ -10,6 +10,10 @@ import (
 	"github.com/qqtou/eos-go"
 )
 
+const (
+	testCurPolyHeight = 4190000
+)
+
 func Test_NewBoltDB(t *testing.T) {
 
 	db, err := NewBoltDB("./")
@@ -90,7 +94,7 @@ func TestUpdateHeight(t *testing.T) {
 	if err != nil {
 		fmt.Printf("NewBoltDB err:%v", err)
 	}
-	err = db.UpdatePolyHeight(123)
+	err = db.UpdatePolyHeight(testCurPolyHeight)
 	if err != nil {
 		panic("failed to save height of poly: %v" + err.Error())
 	}

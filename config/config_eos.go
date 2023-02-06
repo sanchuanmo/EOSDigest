@@ -19,7 +19,6 @@ const (
 	DEFAULT_EOS_CONFIG_FILE_NAME = "./config_eos.json"
 	Version                      = "1.0"
 	DEFAULT_LOG_LEVEL            = log.InfoLog // 默认日志等级 default log level = log.InfoLogs
-
 )
 
 type ServiceEOSConfig struct {

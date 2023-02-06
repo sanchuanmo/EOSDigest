@@ -188,9 +188,11 @@ func GetEOSRawKeepers(eosSdk *eos.API, contractAddress, table string) ([]byte, e
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("data:%v\n", data)
 
-	rawKeepers := data[0][COMKEEPERSPKBYTES].([]byte)
-	return rawKeepers, nil
+	rawKeepers := data[0][COMKEEPERSPKBYTES].([]interface{})
+	rawKeepersBytes := TransInterfacesToBytes(rawKeepers)
+	return rawKeepersBytes, nil
 }
 
 func GetEOSProof(merkleTree *proof.MerkleTree, node []byte) (*EOSProof, error) {

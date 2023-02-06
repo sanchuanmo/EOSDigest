@@ -1,6 +1,6 @@
 {
     "PolyConfig":{
-      "RestURL":"http://117.107.141.162:40236",
+      "RestURL":"http://60.247.61.162:40236",
       "EntranceContractAddress":"0300000000000000000000000000000000000000",
       "WalletFile":"./wallet2.dat",
       "WalletPwd":"4cUYqGj2yib718E7ZmGQc"
@@ -28,7 +28,7 @@
     "RoutineNum": 10,
     "TargetContracts": [
       {
-        "ddc.contract": { 
+        "toCCAddr": { 
           "inbound": [91], 
           "outbound": [91]
         }

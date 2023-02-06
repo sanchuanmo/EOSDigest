@@ -384,8 +384,8 @@ func (this *EOSSender) commitInitgenblock(header *polytypes.Header, pubkList []b
 		Per:        "active",
 	}
 	txDataBK := &contract.InputInitgenblock{
-		RawHeader:  hex.EncodeToString(headerdata),
-		PubKeyList: hex.EncodeToString(pubkList),
+		RawHeader:  headerdata,
+		PubKeyList: pubkList,
 	}
 	txDataByte, err := json.Marshal(txDataBK)
 	if err != nil {

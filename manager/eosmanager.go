@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 
-	// "github.com/ethereum/go-ethereum/common/hexutil"
-
 	"github.com/ontio/ontology/smartcontract/service/native/cross_chain/cross_chain_manager"
 	"github.com/polynetwork/eos_relayer/config"
 	"github.com/polynetwork/eos_relayer/db"
@@ -19,8 +17,6 @@ import (
 	sdk "github.com/polynetwork/poly-go-sdk"
 	"github.com/polynetwork/poly/common"
 	common2 "github.com/polynetwork/poly/native/service/cross_chain_manager/common"
-
-	// "github.com/polynetwork/poly/native/service/cross_chain_manager/eth"
 
 	scom "github.com/polynetwork/poly/native/service/header_sync/common"
 	autils "github.com/polynetwork/poly/native/service/utils"
@@ -35,7 +31,6 @@ type CrossTransfer struct {
 	toChain     uint64 // 目标链	源链event.ToChainId
 	height      uint64 // 高度		源链块高度
 	merkleProof []byte // 默克尔证明
-	leaf        []byte // 节点
 }
 
 type TxActionData struct {
@@ -55,7 +50,7 @@ func (this *CrossTransfer) Serialization(sink *common.ZeroCopySink) {
 	sink.WriteUint64(this.toChain)
 	sink.WriteUint64(this.height)
 	sink.WriteVarBytes(this.merkleProof)
-	sink.WriteVarBytes(this.leaf)
+
 }
 
 // 反序列化
@@ -84,17 +79,12 @@ func (this *CrossTransfer) Deserialization(source *common.ZeroCopySource) error 
 	if eof {
 		return fmt.Errorf("Waiting deserialize merkleProof error")
 	}
-	leaf, eof := source.NextVarBytes()
-	if eof {
-		return fmt.Errorf("Waiting deserialize leaf error")
-	}
 	this.txIndex = txIndex
 	this.txId = txId
 	this.value = value
 	this.toChain = toChain
 	this.height = height
 	this.merkleProof = merkleProof
-	this.leaf = leaf
 	return nil
 }
 
@@ -102,16 +92,15 @@ type EOSManager struct {
 	config *config.ServiceEOSConfig //service配置
 
 	eosClient     *eos.API
-	currentHeight uint64 // 当前高度
-	forceHeight   uint64 //force高度
-	// lockerContract *bind.BoundContract //locker 合约
-	preBlockID   *eos.Checksum256 // 父节点ID Proof相关
-	polySdk      *sdk.PolySdk     // polySDK
-	polySigner   *sdk.Account     //poly注册器
-	exitChan     chan int         //exit chan
-	header4sync  [][]byte         //头同步
-	crosstx4sync []*CrossTransfer //跨链交易同步
-	db           *db.BoltDB       //blotDB
+	currentHeight uint64           // 当前高度
+	forceHeight   uint64           // force高度
+	preBlockID    *eos.Checksum256 // 父节点ID Proof相关
+	polySdk       *sdk.PolySdk     // polySDK
+	polySigner    *sdk.Account     // poly注册器
+	exitChan      chan int         // exit chan
+	header4sync   [][]byte         // 头同步
+	crosstx4sync  []*CrossTransfer // 跨链交易同步
+	db            *db.BoltDB       // blotDB
 }
 
 func NewEOSManager(servConfig *config.ServiceEOSConfig, startheight uint64, startforceheight uint64, polySdk *sdk.PolySdk, eosSdk *eos.API, boltDB *db.BoltDB) (*EOSManager, error) {
@@ -192,7 +181,7 @@ func (this *EOSManager) init() error {
 	}
 
 	this.preBlockID = preBlockID
-
+	// end
 	return nil
 }
 
@@ -201,7 +190,7 @@ func (this *EOSManager) init() error {
 func (this *EOSManager) findLastestHeight() uint64 {
 	var sideChainIdBytes [8]byte
 	binary.LittleEndian.PutUint64(sideChainIdBytes[:], this.config.EOSConfig.SideChainId)
-	// fmt.Printf("config side chain ID is :%v\n", sideChainIdBytes)
+
 	contractAddress := autils.HeaderSyncContractAddress
 	key := append([]byte(scom.CURRENT_HEADER_HEIGHT), sideChainIdBytes[:]...)
 	// try to get storage
@@ -211,7 +200,6 @@ func (this *EOSManager) findLastestHeight() uint64 {
 	}
 
 	height := binary.LittleEndian.Uint64(result)
-	// 获取BlockID
 
 	if err != nil {
 		return 0
@@ -226,6 +214,7 @@ func (this *EOSManager) findLastestHeight() uint64 {
 func (this *EOSManager) MonitorEOSChain() {
 	fetchBlockTicker := time.NewTicker(time.Duration(this.config.EOSConfig.MonitorInterval) * time.Second)
 	var blockHandleResult bool
+	log.Infof("起始链----监听起始链区块----") //ToDo
 	for {
 		select {
 		case <-fetchBlockTicker.C:
@@ -292,24 +281,23 @@ func (this *EOSManager) handleBlockHeader(height uint64) bool {
 		log.Errorf("EOS handleBlockHeader - GetNodeHeader on height :%d failed", height)
 		return false
 	}
+	// Proof额外
 
 	hdr.Previous = *this.preBlockID
 
 	blockID, err := hdr.BlockID()
-
-	this.preBlockID = &blockID
-
 	if err != nil {
 		log.Errorf("EOS handleBlockHeader - EOS GetBlockID error: %v", err)
 		return false
 	}
+
+	this.preBlockID = &blockID
 	blockIDBytes, err := blockID.MarshalJSON()
 	if err != nil {
 		log.Errorf("EOS handleBlockHeader - EOS GetBlockIDBytes error: %v", err)
 		return false
 	}
 	rawHdr, _ := eos.MarshalBinary(hdr)
-
 	raw, _ := this.polySdk.GetStorage(autils.HeaderSyncContractAddress.ToHexString(),
 		append(
 			append([]byte(scom.MAIN_CHAIN), autils.GetUint64Bytes(this.config.EOSConfig.SideChainId)...,
@@ -339,23 +327,14 @@ func (this *EOSManager) fetchLockDepositEvents(height uint64, eosClient *eos.API
 		return false
 	}
 	if len(events) == 0 {
-		// fmt.Printf("fetchLockDepositEvents - no events found on FilterCrossChainEvent\n")
 		return true
-	}
-	// 测试日志
-	if len(events) > 0 {
-		log.Infof("EOS fetchLockDepositEvents - filterCrossChainEvent crosschain events len is: %d, the eos block height is: %d", len(events), height)
 	}
 
 	for _, event := range events {
-		log.Infof("<----EOS CrossChainEvent event.TargetID: %v,caller: %v,toContract: %v", event.toChainId, event.caller, event.toContract)
 		var isTarget bool
-		log.Infof("<----EOS CrossChainConfig len(this.config.TargetContracts): %d", len(this.config.TargetContracts))
 		if len(this.config.TargetContracts) > 0 {
 			toContractStr := event.toContract
-			log.Infof("<----EOS CrossChainConfig this.config.TargetContracts: %v", this.config.TargetContracts)
 			for _, v := range this.config.TargetContracts {
-				log.Infof("<---- v[toContractStr]: %v", v[toContractStr])
 				toChainIdArr, ok := v[toContractStr]
 				if ok {
 					if len(toChainIdArr["outbound"]) == 0 {
@@ -363,7 +342,6 @@ func (this *EOSManager) fetchLockDepositEvents(height uint64, eosClient *eos.API
 						break
 					}
 					for _, id := range toChainIdArr["outbound"] {
-						log.Infof("<-- toChainIdArr[\"outbound\"]:%v,event.toChainId:%v, isEqual:%v", id, event.toChainId, id == event.toChainId)
 						if id == event.toChainId {
 							isTarget = true
 							break
@@ -378,6 +356,7 @@ func (this *EOSManager) fetchLockDepositEvents(height uint64, eosClient *eos.API
 				continue
 			}
 		}
+		log.Info("起始链----筛选跨链事件的目标地址,目标链ID:%v,目标链合约地址:%v----", event.toContract, event.toContract)
 		log.Infof("<----EOS Filter after CrossChainEvent event.TargetID: %v,caller: %v,toContract: %v", event.toChainId, event.caller, event.toContract)
 		param := &common2.MakeTxParam{}
 		_ = param.Deserialization(common.NewZeroCopySource([]byte(event.rawParam)))
@@ -388,16 +367,12 @@ func (this *EOSManager) fetchLockDepositEvents(height uint64, eosClient *eos.API
 				hex.EncodeToString(param.CrossChainID), string(event.txHash))
 			continue
 		}
-		log.Infof("---->EOS fetchLockDepositEvents - get event.leaf: %v", event.leaf)
 		proof, err := tools.GetEOSProof(merkleTree, event.leaf)
 		if err != nil {
 			log.Errorf("EOS fetchLockDepositEvents - get Merkle Proof error:%s", err)
 		}
-		log.Infof("---->EOS fetchLockDepositEvents - Calculate Proof %v", proof)
 		proofBytes := common.NewZeroCopySink(nil)
 		proof.Serialization(proofBytes)
-
-		log.Infof("---->EOS fetchLockDepositEvents - Calculate Proof %v", proofBytes)
 
 		crossTx := &CrossTransfer{
 			txIndex:     string(event.txHash),
@@ -406,8 +381,8 @@ func (this *EOSManager) fetchLockDepositEvents(height uint64, eosClient *eos.API
 			value:       event.rawParam,
 			height:      height,
 			merkleProof: proofBytes.Bytes(),
-			leaf:        event.leaf,
 		}
+		log.Infof("起始链----筛选跨链事件:构建Poly跨链交易,跨链交易ID:%v----", crossTx.txId) //ToDo
 		log.Infof("---->EOS get crossTransfer %s to chain:%d, the block height is%d", crossTx.txIndex, crossTx.toChain, crossTx.height)
 		sink := common.NewZeroCopySink(nil)
 		crossTx.Serialization(sink)
@@ -425,7 +400,7 @@ func (this *EOSManager) fetchLockDepositEvents(height uint64, eosClient *eos.API
 过滤跨链合约事件
 */
 func filterCrossChainEvent(height uint32, eosClient *eos.API) ([]TxActionData, *proof.MerkleTree, error) {
-	// log.Infof("--filterCrossChainEvent -  height: %d\n", height)
+
 	res, err := tools.GetEOSTraceBlockByNum(eosClient, height)
 	if err != nil {
 		log.Error("EOS filterCrossChainEvent - error: %s", err)
@@ -437,10 +412,6 @@ func filterCrossChainEvent(height uint32, eosClient *eos.API) ([]TxActionData, *
 		return nil, nil, err
 	}
 
-	if len(resBlock.Transactions) > 0 {
-		log.Infof("---->the block transactions len is %d", len(res.Transactions))
-	}
-
 	var txActions []TxActionData
 	for i, transaction := range res.Transactions {
 		for _, action := range transaction.Actions {
@@ -448,7 +419,7 @@ func filterCrossChainEvent(height uint32, eosClient *eos.API) ([]TxActionData, *
 				log.Infof("---->the block height %d, transaction [%d] action is:%s account is:%s", height, i, action.Action, action.Account)
 			}
 			if action.Action == "crosschaine" && action.Account == "ddcccmanager" {
-
+				log.Infof("起始链----筛选跨链事件:监听到发起跨链----") //ToDo
 				resData, err := tools.GetEOSDeTraceData(eosClient, action.Account, eos.Name(action.Action), action.Data.(string))
 				if err != nil {
 					log.Error("EOS filterCrossChainEvent - error: %s", err)
@@ -517,6 +488,7 @@ func (this *EOSManager) commitHeader() int {
 			return 1
 		}
 	}
+	log.Infof("起始链----发起提交同步区块头----,提交区块头数量:%d,交易Hash为%s", len(this.header4sync), tx.ToHexString()) //ToDo
 	tick := time.NewTicker(100 * time.Millisecond)
 	var h uint32
 	for range tick.C {
@@ -527,7 +499,8 @@ func (this *EOSManager) commitHeader() int {
 		}
 	}
 	log.Infof("EOS commitHeader - send transaction %s to poly chain and confirmed on height %d", tx.ToHexString(), h)
-	this.header4sync = make([][]byte, 0) // 提交后将header4sync数据归零
+	log.Infof("起始链----提交同步区块头成功----,可在Poly链%d高度证明", h) //ToDo
+	this.header4sync = make([][]byte, 0)               // 提交后将header4sync数据归零
 	return 0
 }
 
@@ -548,7 +521,7 @@ func (this *EOSManager) rollBackToCommAncestor() {
 			this.currentHeight++
 		}
 
-		// proof 更改后添加的额外代码
+		// proof 额外代码
 		var sideChainIdBytes [8]byte
 		binary.LittleEndian.PutUint64(sideChainIdBytes[:], this.config.EOSConfig.SideChainId)
 		preBlockID, err := tools.GetPolyStorageHeaderID(this.polySdk, this.currentHeight-1, sideChainIdBytes)
@@ -556,7 +529,7 @@ func (this *EOSManager) rollBackToCommAncestor() {
 			log.Errorf("EOS rollBackToCommAncestor - get preBlockID error:%s\n", err)
 		}
 		hdr.Previous = *preBlockID
-		// 额外代码结束
+		// end
 
 		blockID, err := hdr.BlockID()
 		if err != nil {
@@ -599,10 +572,6 @@ func (this *EOSManager) MonitorDeposit() {
 
 func (this *EOSManager) handleLockDepositEvents(snycheight uint64) error {
 	retryList, err := this.db.GetAllRetry()
-	if len(retryList) > 0 {
-		log.Infof("---->EOS handleLockDepositEvents push croschain events, retryList len is:%d", len(retryList))
-	}
-
 	if err != nil {
 		return fmt.Errorf("EOS handleLockDepositEvents - this.db.GetAllRetry error:%s", err)
 	}
@@ -610,12 +579,6 @@ func (this *EOSManager) handleLockDepositEvents(snycheight uint64) error {
 		time.Sleep(time.Second * 1)
 		crosstx := new(CrossTransfer)
 		err := crosstx.Deserialization(common.NewZeroCopySource(v))
-		//测试日志start
-		log.Infof("crosstx.height: %v\n", crosstx.height)
-		log.Infof("crosstx.toChain: %v\n", crosstx.toChain)
-		log.Infof("crosstx.value: %v\n", crosstx.value)
-		log.Infof("crosstx.merkleProof: %v\n", crosstx.merkleProof)
-		//测试日志end
 		if err != nil {
 			log.Errorf("EOS handleLockDepositEvents - retry.Deserialization error: %s", err)
 			continue
@@ -624,12 +587,13 @@ func (this *EOSManager) handleLockDepositEvents(snycheight uint64) error {
 		if snycheight <= crosstx.height+this.config.EOSConfig.BlockConfig {
 			continue
 		}
+		// 测试日志
 		log.Infof("---->EOS handleLockDepositEvents retryProof %v,height %v", crosstx.merkleProof, crosstx.height)
 
 		//1. commit proof to poly
 		txHash, err := this.commitProof(uint32(crosstx.height), crosstx.merkleProof, crosstx.value, crosstx.txId)
 		if err != nil {
-			//异常错误改造
+			//异常错误
 			if strings.Contains(err.Error(), "chooseUtxos, current utxo is not enough") {
 				log.Infof("EOS handleLockDepositEvents - invokeNativeContract error: %s", err)
 				continue
@@ -645,6 +609,7 @@ func (this *EOSManager) handleLockDepositEvents(snycheight uint64) error {
 				continue
 			}
 		}
+		log.Infof("起始链----提交跨链交易（默克尔证明）----交易ID为:%v,Poly交易哈希为:%v", crosstx.txId, txHash) //ToDo
 		//2. put to check db for checking
 		err = this.db.PutCheck(txHash, v)
 		if err != nil {
@@ -662,7 +627,6 @@ func (this *EOSManager) handleLockDepositEvents(snycheight uint64) error {
 func (this *EOSManager) commitProof(height uint32, proof []byte, value []byte, txhash []byte) (string, error) {
 	log.Infof("EOS commitProof -  height: %d, proof: %v, value: %s, txhash: %s", height, proof, hex.EncodeToString(value), hex.EncodeToString(txhash))
 
-	log.Infof("---->EOS commitProof - proof serilization: %v", proof)
 	tx, err := this.polySdk.Native.Ccm.ImportOuterTransfer(
 		this.config.EOSConfig.SideChainId,
 		value,
@@ -695,14 +659,12 @@ func (this *EOSManager) CheckDeposit() {
 
 func (this *EOSManager) checkLockDepositEvents() error {
 	checkMap, err := this.db.GetAllCheck()
-	// fmt.Printf("checkMap:%v\n", checkMap)
 	if err != nil {
 		return fmt.Errorf("EOS checkLockDepositEvents - this.db.GetAllCheck error: %s", err)
 	}
 	for k, v := range checkMap {
 		// k txHash
 		event, err := this.polySdk.GetSmartContractEvent(k)
-		fmt.Printf("event:%v\n", event)
 		if err != nil {
 			log.Errorf("EOS checkLockDepositEvents - this.aliaSdk.GetSmartContractEvent error: %s", err)
 			continue
@@ -717,6 +679,7 @@ func (this *EOSManager) checkLockDepositEvents() error {
 				log.Errorf("EOS checkLockDepositEvents - this.db.PutRetry error:%s", err)
 			}
 		}
+		log.Infof("起始链----Poly出块,跨链交易成功,Poly交易Hash为:%v----", event.TxHash) //ToDo
 		err = this.db.DeleteCheck(k)
 		if err != nil {
 			log.Errorf("EOS checkLockDepositEvents - this.db.DeleteRetry error:%s", err)

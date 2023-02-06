@@ -5,11 +5,9 @@ import (
 	"encoding/binary"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/polynetwork/eos_relayer/config"
 	"github.com/polynetwork/eos_relayer/log"
-	"github.com/polynetwork/eos_relayer/tools"
 	sdk "github.com/polynetwork/poly-go-sdk"
 	scom "github.com/polynetwork/poly/native/service/header_sync/common"
 	autils "github.com/polynetwork/poly/native/service/utils"
@@ -18,11 +16,12 @@ import (
 
 var ConfigPath string = "../config_eos.json"
 var LogDir string = "../Log/"
-var chainNum uint64 = 10
-var chainName string = "testChain090"
-var eosHeight uint32 = 18558916 // 91 最新高度
+var chainNum uint64 = 93
+var chainName string = "testChain093"
+var eosHeight uint32 = 21128173 // 91 最新高度
+var Epoch uint32 = 60000
 
-var polyHeight uint32 = 4080000 //同步Poly的共识区块高度，为60000的整数倍// 当前高度4087694 ,周期为4080000
+var polyHeight uint32 = 4140000 //同步Poly的共识区块高度，为60000的整数倍// 当前高度4087694 ,周期为4080000
 
 /*
 获取配置类
@@ -81,11 +80,10 @@ func GetRegisterEOS() *RegisterEOS {
 }
 
 /*
-注册侧链(申请注册与同意注册)
+注册侧链(申请注册侧链与同意注册侧链)
 */
 func TestRegisterSideChain(t *testing.T) {
 	register := GetRegisterEOS()
-	//register.RegisterSideChain(20, 10, 10, "testChain02", ddcccmanager)
 	err := register.RegisterSideChain(register.config.EOSConfig.SideChainId, uint64(register.config.RoutineNum), chainNum, chainName, register.config.EOSConfig.ContractAddress)
 	if err != nil {
 		fmt.Printf("TestRegisterSideChain: RegisterSideChain RPC faild error: %v", err)
@@ -93,7 +91,7 @@ func TestRegisterSideChain(t *testing.T) {
 }
 
 /*
-取消侧链（注销）
+注销侧链（申请注销侧链与同意注销侧链）
 */
 func TestQuitSideChain(t *testing.T) {
 	register := GetRegisterEOS()
@@ -166,8 +164,7 @@ func TestGetGenesisHeadrStorage(t *testing.T) {
 
 	// MAIN_CHAIN	存BlockIDBytes
 	key3 := append(append([]byte(scom.MAIN_CHAIN), sideChainIdBytes[:]...), autils.GetUint64Bytes(chainHeight)...)
-	// key3 := append([]byte(scom.MAIN_CHAIN), sideChainIdBytes[:]...)
-	// key3 = append(key3, autils.GetUint64Bytes(uint64(eosHeight))...)
+
 	result3, err := register.polySdk.GetStorage(contractAddress.ToHexString(), key3)
 	if err != nil && result3 != nil {
 		panic("poly: GetStorage MAIN_CHAIN error" + err.Error())
@@ -185,8 +182,7 @@ func TestGetGenesisHeadrStorage(t *testing.T) {
 	blockID, _ := blockHeader.BlockID()
 	blockIDBytes, _ := blockID.MarshalJSON()
 	fmt.Printf("blockIDBytes :%v", blockIDBytes)
-	key4 := append([]byte(scom.HEADER_INDEX), sideChainIdBytes[:]...)
-	key4 = append(key4, blockIDBytes...)
+	key4 := append(append([]byte(scom.HEADER_INDEX), sideChainIdBytes[:]...), blockIDBytes...)
 	result4, err := register.polySdk.GetStorage(contractAddress.ToHexString(), key4)
 	if err != nil {
 		panic("poly: GetStorage HEADER_INDEX error" + err.Error())
@@ -208,6 +204,9 @@ func TestGetGenesisHeadrStorage(t *testing.T) {
 
 }
 
+/*
+测试更换TransactionMRoot后序列化是否支持
+*/
 func TestENDEcode(t *testing.T) {
 	register := GetRegisterEOS()
 	eosSdk := register.eosclient
@@ -217,16 +216,12 @@ func TestENDEcode(t *testing.T) {
 		panic("get block header error")
 	}
 	hdr := blockResp.SignedBlockHeader
-	// hdrPr,_ := json.Marshal(hdr)
+
 	fmt.Printf("原hdr: %v", hdr)
 	hdrByte, err := eos.MarshalBinary(hdr)
 	if err != nil {
 		panic("from header to byte error" + err.Error())
 	}
-	// buf := new(bytes.Buffer)
-	// encoder := eos.NewEncoder(buf)
-	// err = encoder.Encode(hdr)
-	// hdrByte := buf.Bytes()
 
 	// 构成序列化结果
 	var newHdr *eos.SignedBlockHeader
@@ -237,12 +232,16 @@ func TestENDEcode(t *testing.T) {
 	}
 }
 
-func TestGetPolyHeight(t *testing.T) {
+/*
+获取Poly最新同步周期高度,和最新高度
+*/
+func TestGetPolyEpochHeight(t *testing.T) {
 	register := GetRegisterEOS()
 	polySdk := register.polySdk
-	height, _ := polySdk.GetCurrentBlockHeight()
+	lastHeight, _ := polySdk.GetCurrentBlockHeight()
+	epochHeight := uint32(lastHeight/Epoch) * Epoch
 
-	fmt.Printf("current height is %d", height)
+	fmt.Printf("current height is %d\nepochHeight: %v\ndiff is: %d", lastHeight, epochHeight, lastHeight-epochHeight)
 }
 
 /*
@@ -264,30 +263,3 @@ func TestRegisterRelayer(t *testing.T) {
 	}
 }
 */
-
-/*
-测试前区块ID和当前区块的ParentID是否一致
-16958732 16958733
-*/
-func TestBlockTime(t *testing.T) {
-
-	register := GetRegisterEOS()
-	eosSdk := register.eosclient
-	parentHeader, err := tools.GetEOSHeaderByNum(eosSdk, 16958360)
-	if err != nil {
-		panic("eos: getHeaderByNum error" + err.Error())
-	}
-	header, err := tools.GetEOSHeaderByNum(eosSdk, 16958361)
-	if err != nil {
-		panic("eos: getHeaderByNum error" + err.Error())
-	}
-
-	fmt.Printf("the parentHeader time is: %v\n", parentHeader.Timestamp)
-	fmt.Printf("the header time is: %v\n", header.Timestamp)
-
-	fmt.Printf("the parentHeader time unix is: %v\n", parentHeader.Timestamp.Time.Add(500*time.Millisecond).UnixNano())
-	fmt.Printf("the header time unix is: %v\n", header.Timestamp.Time.UnixNano())
-
-	fmt.Printf("is Equal %v", parentHeader.Timestamp.Time.Add(500*time.Millisecond).UnixNano() == header.Timestamp.Time.UnixNano())
-
-}

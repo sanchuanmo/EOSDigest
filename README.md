@@ -17,11 +17,77 @@
 
 - [Golang](https://golang.org/doc/install) version 1.14 or later
 
-## 前置条件
-确保执行了toolbox中的初始化相关测试类
+## 编译步骤
+```
+cd eso_relayer
+go build -o eos_relayer main.go
+```
 
-### Relayer相关初始化调用示例如下：
-#### 1. 注册侧链
+## License
+
+[Apache 2.0](./LICENSE)
+
+## 部署与测试流程
+
+### 部署Relayer
+
+#### 配置配置类`config_eos.json`
+
+```
+{
+    "PolyConfig":{
+      "RestURL":"http://60.247.61.162:40236",                                 // Poly地址
+      "EntranceContractAddress":"0300000000000000000000000000000000000000",   // Poly的CrossChainManagerContractAddress 
+      "WalletFile":"./wallet2.dat",                                           // 发送跨链交易默认钱包
+      "WalletPwd":"4cUYqGj2yib718E7ZmGQc"                                     // 密码
+    },
+    "EOSConfig":{
+      "SideChainId": 91,                                                      // 侧链ID
+      "RestURL":"http://172.17.0.2:8888",                                     // 起始链地址
+      "StoreAccounts": [
+        {
+          "accountName":"janifer",                                            // Relayer发送跨链交易到目标链所需账户及私钥
+          "privateKey" : "5JvypYCUAKnKpe2zDdtNrMcMR2XXPiHPUNhEEhT7oW8kNabd13G"
+        },
+        {
+          "accountName":"jarry",
+          "privateKey" : "5JvypYCUAKnKpe2zDdtNrMcMR2XXPiHPUNhEEhT7oW8kNabd13G"
+        }
+      ],
+            
+      "BlockConfig": 12,                                                       // 起始链同步块高度阈值
+      "HeadersPerBatch": 200,                                                  // 每次提交同步块头的块数
+      "MonitorInterval": 3 ,                                                   // 监听时间间隔
+      "contractAddress" : "ddcccmanager"                                       // 中移链管理合约地址
+    },
+    "BoltDbPath": "./db",                                                      // BoltDB数据存储路径
+    "RoutineNum": 10,                                                          // 侧链Routine号
+    "TargetContracts": [                                                       
+      {
+        "toCCAddr": {                                                          // 中移链应用合约地址
+          "inbound": [91],                                                     // 目标链Relayer支持的起始链ID
+          "outbound": [91]                                                     // 起始链Relayer支持的目标链ID
+        }
+      }
+    ]
+  }
+```
+
+#### 修改`regist_test.go`相关参数
+
+```
+var ConfigPath string = "../config_eos.json"    Relayer配置地址
+var LogDir string = "../Log/"                   日志地址
+var chainNum uint64 = 93                        侧链ID
+var chainName string = "testChain093"           侧链名
+var eosHeight uint32 = 21128173                 EOS最新高度
+var Epoch uint32 = 60000                        Poly同步周期间隔，无需修改
+var polyHeight uint32 = 4140000                 Poly当前同步周期高度
+```
+
+#### 初始化Relayer步骤
+
+1. 注册侧链
  - 注册侧链         注册侧链需任意一个Poly同步节点账户调用`RegisterSideChain`接口
    - 参数:
   
@@ -49,8 +115,7 @@ waiting poly transaction 72facb4456a87298b65df2febb3bdff865b050f33873933e12fa278
 第2次, successful to approve: ( acc: 147217ee18d862da9f0493cf8f5fd1c43cd30ff0, txhash: 72facb4456a87298b65df2febb3bdff865b050f33873933e12fa2784b6798fc7, chain-id: 14 )
 TestRegisterSideChain: ApproveRegisterSideChain RPC faild error: ApproveRegisterSideChain failed: JsonRpcResponse error code:-1 desc:INTERNAL ERROR, ErrUnknown result:"[Invoke] Native serivce function execute error:ApproveRegisterSideChain, chainid is not requested"--- PASS: TestRegisterSideChain (61.95s)
 ```
-
-#### 2. 同步起始链创世节点到Poly
+2. 同步起始链创世节点到Poly
 同步起始链创世节点逻辑（以下简称同步创世节点）
  - 同步创世节点      获取EOS起始链创世区块，调用`SyncGenesisHeader`接口。
    - 参数：
@@ -66,8 +131,7 @@ SyncGenesisHeader success, the return is: [42 117 193 162 195 139 133 210 167 11
 PASS
 ok      github.com/polynetwork/eos_relayer/toolbox      1.553s
 ```
-
-#### 3. 同步Poly共识节点到目标链管理合约 
+3. 同步Poly共识节点到目标链管理合约 
 同步Poly共识节点到目标链逻辑（以下简称同步共识节点）,调用目标链管理合约初始化方法`initgenblock`
  - 同步共识节点       获取Poly当前周期共识
    - 参数：
@@ -111,16 +175,38 @@ PASS
 ok      github.com/polynetwork/eos_relayer/toolbox      0.097s
 ```
 
-## 编译步骤
+#### 测试启动Relayer
 ```
-cd eso_relayer
-go build -o eos_relayer main.go
+后台运行命令： nohup go run main.go 1>Log/myout.log 2>Log/err.log &
+运行日志查看命令：cd Log tail -f myout.log
 ```
 
-## License
 
-[Apache 2.0](./LICENSE)
+### 重复测试changebookkeeper
 
-## 测试调试示例如下：
+#### 删除管理合约内存表
+
+```sh
+root@f8f822c1c047:/# cleos push action ddcccmanager removepoly '[""]' -p ddcccmanager@active
+executed transaction: 999b6401c34bf061cdef583cc09db784ab6311515c1d3392ad207f23e24df8ec  96 bytes  183 us
+#  ddcccmanager <= ddcccmanager::removepoly     ""
+warning: transaction executed locally, but may not be confirmed by the network yet         ]
+```
+
+#### 修改`db_test.go`相关参数
+
+```
+testCurPolyHeight = 4190000
+```
+
+先修改db_test.go 中常量testCurPolyHeight,再重启Relayer
+
+
+#### 调用`db_test.go`测试函数
+```sh
+cd db
+[zhousk@VM-16-16-centos db]$ go test -run TestUpdateHeight
+db.GetPolyHeight(): 4199000
+```
 
 

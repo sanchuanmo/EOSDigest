@@ -20,7 +20,6 @@ var PolyStartHeight uint64 = 3960000 // >=Poly侧同步周期节点高度
 var StartForceHeight uint64 = 15776234
 var traceHeight uint32 = 18167351
 
-// var eosUrl = "http://0.0.0.0:8888"
 var eosCSheight = 8651667 // eos包含跨链事件的指定高度	暂未定，待测试完善
 
 /*获取EOSServer*/

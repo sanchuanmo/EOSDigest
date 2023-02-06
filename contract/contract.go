@@ -6,7 +6,7 @@ import (
 
 const (
 	VERIFYEXETXE = "verifyexetx"
-	CHBOOKKEEPE  = "chbookkeepee"
+	CHBOOKKEEPER = "chbookkeeper"
 	INITGENBLOCK = "initgenblock"
 )
 
@@ -44,25 +44,25 @@ type Basics struct {
 }
 
 type InputChbookkeeper struct {
-	RawHeader  string `json:"rawHeader,omitempty"`
-	PubKeyList string `json:"pubKeyList,omitempty"`
-	SigList    string `json:"sigList,omitempty"`
+	RawHeader  []byte `json:"rawHeader,omitempty"`
+	PubKeyList []byte `json:"pubKeyList,omitempty"`
+	SigList    []byte `json:"sigList,omitempty"`
 }
 
 type InputVerifyexetx struct {
-	Proof        string `json:"proof,omitempty"`
-	RawHeader    string `json:"rawHeader,omitempty"`
-	HeaderProof  string `json:"headerProof,omitempty"`
-	CurRawHeader string `json:"curRawHeader,omitempty"`
-	HeaderSig    string `json:"headerSig,omitempty"`
+	Proof        []byte `json:"proof,omitempty"`
+	RawHeader    []byte `json:"rawHeader,omitempty"`
+	HeaderProof  []byte `json:"headerProof,omitempty"`
+	CurRawHeader []byte `json:"curRawHeader,omitempty"`
+	HeaderSig    []byte `json:"headerSig,omitempty"`
 }
 
 type InputInitgenblock struct {
-	RawHeader  string `json:"rawHeader,omitempty"`
-	PubKeyList string `json:"pubKeyList,omitempty"`
+	RawHeader  []byte `json:"rawHeader,omitempty"`
+	PubKeyList []byte `json:"pubKeyList,omitempty"`
 }
 
-func (basics *Basics) Initgenblock(rawHeader, pubKeyList string) *eos.Action {
+func (basics *Basics) Initgenblock(rawHeader, pubKeyList []byte) *eos.Action {
 	return &eos.Action{
 		Account: basics.Contract,
 		Name:    basics.ActionName,
@@ -74,7 +74,7 @@ func (basics *Basics) Initgenblock(rawHeader, pubKeyList string) *eos.Action {
 }
 
 // 更新bookkeeper
-func (basics *Basics) Chbookkeeper(rawHeader, pubKeyList, sigList string) *eos.Action {
+func (basics *Basics) Chbookkeeper(rawHeader, pubKeyList, sigList []byte) *eos.Action {
 	return &eos.Action{
 		Account: basics.Contract,
 		Name:    basics.ActionName,
@@ -86,7 +86,7 @@ func (basics *Basics) Chbookkeeper(rawHeader, pubKeyList, sigList string) *eos.A
 }
 
 // 验证跨链交易并执行
-func (basics *Basics) Verifyexetx(proof, rawHeader, headerProof, curRawHeader, headerSig string) *eos.Action {
+func (basics *Basics) Verifyexetx(proof, rawHeader, headerProof, curRawHeader, headerSig []byte) *eos.Action {
 	return &eos.Action{
 		Account: basics.Contract,
 		Name:    basics.ActionName,

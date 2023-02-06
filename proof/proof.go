@@ -31,53 +31,73 @@ var (
 	emptyRoot        = make([]byte, 32)
 )
 
+/*
+计算哈希
+*/
 func CalculateHash(hash []byte) []byte {
 	h := sha256.New()
 	_, _ = h.Write(hash)
 	return h.Sum(nil)
 }
 
+/*
+计算节点哈希
+*/
 func CalculateNodeHash(left, right []byte) []byte {
 	temp := append(left, right...)
 	return CalculateHash(temp)
 }
 
+/*
+原数据序列化
+*/
 func SerializationTrans(tr eos.TransactionReceipt) []byte {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.LittleEndian, tr.Status)
 	binary.Write(buf, binary.LittleEndian, tr.CPUUsageMicroSeconds)
 	binary.Write(buf, binary.LittleEndian, tr.NetUsageWords)
-	// temp, _ := tr.Transaction.MarshalJSON()
-	// binary.Write(buf, binary.LittleEndian, temp)
+
 	binary.Write(buf, binary.LittleEndian, tr.Transaction.ID)
 	binary.Write(buf, binary.LittleEndian, tr.Transaction.Packed)
 	return buf.Bytes()
 }
 
-// func DeserializationTrans(trByte []byte) eos.TransactionReceipt {
-
-// }
-
+/*
+左节点判断
+*/
 func JudgeLeft(left []byte) bool {
 	return (left[0] & byte(RightSign)) == 0
 }
+
+/*
+右节点判断
+*/
 func Judgeright(right []byte) bool {
 	return (right[0] & byte(RightSign)) != 0
 }
 
+/*
+左节点标记
+*/
 func SignToLeft(node []byte) []byte {
 	left := node
 	left[0] &= byte(LeftSign)
 
 	return left
 }
+
+/*
+右节点标记
+*/
 func SignToRight(node []byte) []byte {
 	right := node
 	right[0] |= byte(RightSign)
 	return right
 }
 
-// 计算所有叶子节点的Hash再递归调用buildIntermediate 构建整棵树
+/*
+计算所有叶子节点的Hash再递归调用buildIntermediate 构建整棵树
+*/
 func buildWithLeaf(cs []eos.TransactionReceipt, t *MerkleTree) (*Node, []*Node, error) {
 	if len(cs) == 0 {
 		return nil, nil, nil
@@ -99,7 +119,7 @@ func buildWithLeaf(cs []eos.TransactionReceipt, t *MerkleTree) (*Node, []*Node, 
 	if len(leafs)%2 == 1 {
 		var reHash = make([]byte, 32)
 		copy(reHash, leafs[len(leafs)-1].Hash)
-		// fmt.Printf("reHash: %v\n", reHash)
+
 		duplicate := &Node{
 			Hash: reHash,
 			C:    leafs[len(leafs)-1].C,
@@ -109,11 +129,6 @@ func buildWithLeaf(cs []eos.TransactionReceipt, t *MerkleTree) (*Node, []*Node, 
 		leafs = append(leafs, duplicate)
 	}
 
-	// for i := 0; i < len(leafs); i++ {
-	// 	fmt.Printf("the leaf[%d] hashed is:%v\n", i, leafs[i].Hash)
-	// }
-	// fmt.Printf("\n")
-
 	root, err := buildIntermeddiate(leafs, t)
 	if err != nil {
 		return nil, nil, err
@@ -121,14 +136,16 @@ func buildWithLeaf(cs []eos.TransactionReceipt, t *MerkleTree) (*Node, []*Node, 
 	return root, leafs, nil
 }
 
-// 对于给定叶子节点列表，构建树的中间层和根，并返回树的根节点
+/*
+对于给定叶子节点列表，构建树的中间层和根，并返回树的根节点
+*/
 func buildIntermeddiate(nl []*Node, t *MerkleTree) (*Node, error) {
 	var nodes []*Node
 	//补足
 	if len(nl)%2 == 1 {
 		var reHash = make([]byte, 32)
 		copy(reHash, nl[len(nl)-1].Hash)
-		// fmt.Printf("reHash: %v\n", reHash)
+
 		duplicate := &Node{
 			Hash: reHash,
 			C:    nl[len(nl)-1].C,
@@ -143,11 +160,9 @@ func buildIntermeddiate(nl []*Node, t *MerkleTree) (*Node, error) {
 		if i+1 == len(nl) {
 			right = i
 		}
-		// fmt.Printf("nl[left].Hash: %v\n", nl[left].Hash)
-		// fmt.Printf("nl[right].Hash: %v\n", nl[right].Hash)
+
 		hashed := CalculateNodeHash(SignToLeft(nl[left].Hash), SignToRight(nl[right].Hash))
-		// fmt.Printf("nl[left].Hash: %v\n", nl[left].Hash)
-		// fmt.Printf("nl[right].Hash: %v\n", nl[right].Hash)
+
 		n := &Node{
 			Left:  nl[left],
 			Right: nl[right],
@@ -161,20 +176,22 @@ func buildIntermeddiate(nl []*Node, t *MerkleTree) (*Node, error) {
 		nl[right].Parent = n
 	}
 
-	// for i := 0; i < len(nodes); i++ {
-	// 	fmt.Printf("the node hashed is:%v\n", nodes[i].Hash)
-	// }
-	// fmt.Printf("\n")
 	if len(nl) == 2 {
 		return nodes[0], nil
 	}
 	return buildIntermeddiate(nodes, t)
 }
 
+/*
+获取默克尔根
+*/
 func (m *MerkleTree) GetMerkleRoot() []byte {
 	return m.merkleRoot
 }
 
+/*
+构造默克尔树
+*/
 func NewTree(cs []eos.TransactionReceipt) (*MerkleTree, error) {
 	t := &MerkleTree{}
 	root, leafs, err := buildWithLeaf(cs, t)
@@ -193,28 +210,18 @@ func NewTree(cs []eos.TransactionReceipt) (*MerkleTree, error) {
 }
 
 /*
-已优化，无需index
+获取默克尔证明的路径
 */
-// func (m *MerkleTree) GetMerklePath(c []byte) ([][]byte, []uint64, error) {
 func (m *MerkleTree) GetMerklePath(c []byte) ([][]byte, []byte, error) {
 	for i, current := range m.Leafs {
-		// ok :=
-		// fmt.Printf("Get the %d leaf in tree, leaf hash is: %v", i, current.Hash)
 		if bytes.Equal(c, current.C) && current.dup == false {
-			fmt.Printf("Get the node in tree, index is %d\n,the goal node: %v\n match node: %v\n", i, CalculateHash(c), current.Hash)
 			currentParent := current.Parent
 			var merklePath [][]byte
-			// var index []uint64
 			for currentParent != nil {
-				fmt.Printf("currentParent is :%v", currentParent.Hash)
 				if bytes.Equal(currentParent.Left.Hash, current.Hash) {
 					merklePath = append(merklePath, currentParent.Right.Hash)
-					fmt.Printf("Append the right Hash,%v", currentParent.Right.Hash)
-					// index = append(index, 1) // right leaf
 				} else {
 					merklePath = append(merklePath, currentParent.Left.Hash)
-					// index = append(index, 0) // left leaf
-					fmt.Printf("Append the left Hash,%v", currentParent.Left.Hash)
 				}
 				current = currentParent
 				currentParent = currentParent.Parent
@@ -226,6 +233,9 @@ func (m *MerkleTree) GetMerklePath(c []byte) ([][]byte, []byte, error) {
 	return nil, nil, nil
 }
 
+/*
+自底向上层次遍历输出默克尔树的每一个节点
+*/
 func (m *MerkleTree) ToString() error {
 	res := make([][]byte, 0)
 	leafs := m.Leafs
@@ -264,10 +274,13 @@ func (m *MerkleTree) ToString() error {
 	return nil
 }
 
+/*
+验证默克尔证明
+*/
 func VerifyLeaf(path [][]byte, leaf []byte) []byte {
 
 	if len(path) < 1 {
-		fmt.Printf("root is :%v\n", leaf)
+
 		return leaf
 	}
 
@@ -277,14 +290,14 @@ func VerifyLeaf(path [][]byte, leaf []byte) []byte {
 	var temp []byte
 	if JudgeLeft(pa) {
 		releaf := SignToRight(leaf)
-		fmt.Printf("Signed right leaf:%v\n, left node:%v\n", releaf, pa)
+
 		temp = CalculateNodeHash(pa, releaf)
-		fmt.Printf("the next Node is:%v\n", temp)
+
 	} else {
 		releaf := SignToLeft(leaf)
-		fmt.Printf("Signed left leaf:%v\n, right node:%v\n", leaf, pa)
+
 		temp = CalculateNodeHash(releaf, pa)
-		fmt.Printf("the next Node is:%v\n", temp)
+
 	}
 
 	return VerifyLeaf(path, temp)

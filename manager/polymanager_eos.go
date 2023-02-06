@@ -127,8 +127,7 @@ func NewPolyManagerEOS(servcfg *config.ServiceEOSConfig, startblockHeight uint64
 查询eos内存表获取Poly的当前轮次起始高度
 */
 func (this *PolyManagerEOS) findLatestHeight() uint64 {
-	// 获取跨链管理合约Poly信息全局表中存储的curEpochStartHeight
-	// 依据现有跨链管理合约具体内容进行改造
+
 	height, err := tools.GetEOSStartHeight(this.eosclient, this.config.EOSConfig.ContractAddress, tools.CROSSCONTRACTTABLE)
 	if err != nil {
 		log.Errorf("findLatestHeight - GetLatestHeight failed: %s", err.Error())
@@ -168,6 +167,7 @@ func (this *PolyManagerEOS) MonitorChain() {
 		log.Errorf("MonitorChain - init failed")
 	}
 	// 定时任务
+	log.Infof("目标链----监听Poly区块----") //ToDo
 	monitorTicker := time.NewTicker(config.POLY_MONITOR_INTERVAL)
 	var blockHandleResult bool
 	for {
@@ -186,8 +186,8 @@ func (this *PolyManagerEOS) MonitorChain() {
 			log.Infof("MonitorChain - poly chain current height: %d", lastestheight)
 			blockHandleResult = true
 			for this.currentHeight <= uint64(lastestheight)-config.POLY_USEFUL_BLOCK_NUM {
-				// 每处理10次日志记录，方便测试，修改日志记录间隔。
-				if this.currentHeight%50 == 0 {
+				// 每处理10次日志记录。
+				if this.currentHeight%10 == 0 {
 					log.Infof("handle confirmed poly Block height: %d", this.currentHeight)
 				}
 				// 处理区块头
@@ -197,7 +197,7 @@ func (this *PolyManagerEOS) MonitorChain() {
 				}
 				this.currentHeight++
 			}
-			// 将处理完的当前高度存入DB，异常处理的冗余机制
+			// 异常处理的冗余机制（将处理完的当前高度存入DB）
 			if err = this.db.UpdatePolyHeight(this.currentHeight - 1); err != nil {
 				log.Errorf("MonitorChain - failed to save height of poly: %v", err)
 			}
@@ -255,12 +255,13 @@ func (this *PolyManagerEOS) handleDepositEvents(height uint64) bool {
 		log.Errorf("handleDepositEvents - GetNodeHeader on height : %d failed", height)
 		return false
 	}
-	// 问题1 为什么要height+1
-	//isCurr是当前轮,lastEpoch 指的是上一次监听执行的最新高度,即上一次的lastestHeight
+
+	//isCurr:当前轮,lastEpoch:上一次监听执行的最新高度(即上一次的lastestHeight)
 	isCurr := lastEpoch < height+1
 	// 当NextBookkeeper == common.ADDRESS_EMPTY空地址或blkInfo.NewChainConfig == nil的时候表示是本周期内的其他非同步块
 	// isEpoch 指的是是否是本poly周期内，false表示是本周期内，true表示非本周期内,非本周期内需要更新pubkList
 	isEpoch, pubkList, err := this.IsEpoch(hdr)
+	log.Infof("目标链----Poly周期性验证,验证块号为:%v----", height+1) //ToDo
 	if err != nil {
 		log.Errorf("falied to chech isEpoch: %v", err)
 		return false
@@ -288,6 +289,7 @@ func (this *PolyManagerEOS) handleDepositEvents(height uint64) bool {
 	for _, event := range events {
 		for _, notify := range event.Notify {
 			if notify.ContractAddress == this.config.PolyConfig.EntranceContractAddress {
+
 				states := notify.States.([]interface{})
 				method, _ := states[0].(string)
 				if method != "makeProof" {
@@ -302,6 +304,7 @@ func (this *PolyManagerEOS) handleDepositEvents(height uint64) bool {
 					log.Errorf("handleDepositEvents - failed to get proof for key %s: %v", states[5].(string), err)
 					continue
 				}
+				log.Infof("目标链----获取Poly的跨链交易证明----") //ToDo
 				auditpath, _ := hex.DecodeString(proof.AuditPath)
 				value, _, _, _ := tools.ParseAuditpath(auditpath)
 				param := &common2.ToMerkleValue{}
@@ -310,7 +313,6 @@ func (this *PolyManagerEOS) handleDepositEvents(height uint64) bool {
 					continue
 				}
 				var isTarget bool
-				log.Infof("---->handleDepositEvents - the event target contract is %s", string(param.MakeTxParam.ToContractAddress))
 				// 向目标合约地址发送
 				if len(this.config.TargetContracts) > 0 {
 					toContractStr := string(param.MakeTxParam.ToContractAddress)
@@ -336,6 +338,7 @@ func (this *PolyManagerEOS) handleDepositEvents(height uint64) bool {
 						continue
 					}
 				}
+				log.Infof("目标链----筛选满足起始链范围的跨链交易----") //ToDo
 				cnt++
 				sender := this.selectSender()
 				log.Infof("sender %v is handling poly tx ( hash: %v, height: %d) ", sender.acc.AccountName, param.TxHash, height)
@@ -368,7 +371,7 @@ func (this *PolyManagerEOS) selectSender() *EOSSender {
 */
 func (this *EOSSender) commitVerifyTx(header *polytypes.Header, param *common2.ToMerkleValue, anchorHeaderProof string, anchorHeader *polytypes.Header, polyTxHash string, headerProof []byte) bool {
 	//打包数据
-
+	log.Infof("目标链----构造跨链管理合约交易----") //ToDo
 	var (
 		sigs       []byte
 		headerData []byte
@@ -398,11 +401,11 @@ func (this *EOSSender) commitVerifyTx(header *polytypes.Header, param *common2.T
 	}
 
 	txData := &contract.InputVerifyexetx{
-		Proof:        common.ToHexString(headerProof),
-		RawHeader:    common.ToHexString(headerData),
-		HeaderProof:  common.ToHexString(hp),
-		CurRawHeader: common.ToHexString(rawAnchor),
-		HeaderSig:    common.ToHexString(sigs),
+		Proof:        headerProof,
+		RawHeader:    headerData,
+		HeaderProof:  hp,
+		CurRawHeader: rawAnchor,
+		HeaderSig:    sigs,
 	}
 	txDataByte, err := json.Marshal(txData)
 	if err != nil {
@@ -442,7 +445,7 @@ func (this *EOSSender) commitVerifyTx(header *polytypes.Header, param *common2.T
 }
 
 /*
-发送chbookkeepee交易到目标链管理合约
+发送chbookkeeper交易到目标链管理合约
 */
 func (this *EOSSender) commitChbook(header *polytypes.Header, pubkList []byte) bool {
 	headerdata := header.GetMessage()
@@ -460,14 +463,14 @@ func (this *EOSSender) commitChbook(header *polytypes.Header, pubkList []byte) b
 	basicBk := &contract.Basics{
 		Caller:     eos.AccountName(this.acc.AccountName),
 		Contract:   eos.AccountName(this.config.EOSConfig.ContractAddress),
-		ActionName: eos.ActionName(contract.CHBOOKKEEPE),
+		ActionName: eos.ActionName(contract.CHBOOKKEEPER),
 		Per:        "active",
 	}
 
 	txDataBK := &contract.InputChbookkeeper{
-		RawHeader:  string(headerdata),
-		PubKeyList: string(pubkList),
-		SigList:    string(sigs),
+		RawHeader:  headerdata,
+		PubKeyList: pubkList,
+		SigList:    sigs,
 	}
 	txDataByte, err := json.Marshal(txDataBK)
 	if err != nil {
@@ -551,29 +554,16 @@ func (this *EOSSender) sendTxToEOS(info *EOSTxInfo) error {
 		log.Errorf("json marshalling transaction: %v", err)
 	}
 	fmt.Printf("signedTx:%v\n", string(content)) // TODO调试输出后续删除
-	fmt.Printf("packedTx: %v\n", packedTx)       // TODO调试输出后续删除
 
 	// push打包后的签名交易
 	response, err := this.eosClient.PushTransaction(ctx, packedTx)
+	log.Infof("目标链----发送跨链交易到跨链管理合约----") //ToDo
 	if err != nil {
 		log.Errorf("push transaction:%v", err)
 		return err
 	}
+	log.Infof("目标链----发送跨链交易到跨链管理合约成功----") //ToDo
 	log.Infof("PushTransaction success, txId:%d", hex.EncodeToString(response.Processed.ID))
-	/*将返回的块号与交易ID记录入库，便于后续监听是否上链成功 待确认*/
-	// crossTx := &CrossStatus{
-	// 	txId:       hex.EncodeToString(response.Processed.ID),
-	// 	bolckNum:   response.Processed.BlockNum,
-	// 	sendStatus: false,
-	// }
-	// sink := common.NewZeroCopySink(nil)
-	// crossTx.Serialization(sink)
-	// err = this.db.PutStatus(sink.Bytes())
-	// if err != nil {
-	// 	fmt.Printf("this.db.PutRetry error: %s", err)
-	// } else {
-	// 	fmt.Printf("db.put retry success bolckNum : %d\n txId :%v \n sendStatus %v \n", crossTx.bolckNum, crossTx.txId, crossTx.sendStatus)
-	// }
 
 	return nil
 }
