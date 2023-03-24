@@ -6,7 +6,7 @@
       "WalletPwd":"4cUYqGj2yib718E7ZmGQc"
     },
     "EOSConfig":{
-      "SideChainId": 91, 
+      "SideChainId": 102, 
       "RestURL":"http://172.17.0.2:8888",
       "StoreAccounts": [
         {
@@ -20,17 +20,32 @@
       ],
             
       "BlockConfig": 12, 
-      "HeadersPerBatch": 2000, 
+      "HeadersPerBatch": 4000, 
       "MonitorInterval": 3 ,
       "contractAddress" : "ddcccmanager"
     },
+    "CollectInfoConfig": {
+      "RestURL":"http://60.247.61.162:8461/crossmerge/v1/log/push",
+      "MonitorInterval" : 3,
+      "RetryMonitorInterval": 10,
+      "ReSendNum":2
+    },
+    
     "BoltDbPath": "./db", 
     "RoutineNum": 10,
     "TargetContracts": [
-      {
-        "toCCAddr": { 
-          "inbound": [91], 
-          "outbound": [91]
+      {  
+        "0x6964DC8047BdD56A4B8aCCA2803E6B2E026d31bf": { 
+          "inbound": [102,1003650780676003], 
+          "outbound": [102,1003650780676003]
+        },
+        "ddc.contract": {
+          "inbound": [102,1003650780676003],
+          "outbound":[102,1003650780676003]
+        },
+        "0x00000000000000006464632e636f6e7472616374":{
+          "inbound": [102,1003650780676003],
+          "outbound":[102,1003650780676003]
         }
       }
     ]

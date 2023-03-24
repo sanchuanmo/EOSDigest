@@ -124,6 +124,23 @@ func TestSyncGenesisHeaderToPoly(t *testing.T) {
 }
 
 /*
+同步起始链创世区块头（最新高度）到Poly
+*/
+func TestSyncGenesisHeaderToPolyAuto(t *testing.T) {
+	register := GetRegisterEOS()
+	ctx := context.Background()
+	eosInfo, err := register.eosclient.GetInfo(ctx)
+	if err != nil {
+		fmt.Printf("get EOS info error : %v\n", err)
+	}
+	eosNum := eosInfo.LastIrreversibleBlockNum
+	err = register.SyncGenesisHeaderToPoly(register.config.EOSConfig.SideChainId, eosNum, register.eosclient)
+	if err != nil {
+		fmt.Printf("TestSyncPolyHdrToEOS: SyncGenesisHeaderToPoly faild error: %v", err)
+	}
+}
+
+/*
 测试获取Poly GenesisHeader接口存内存表的值
 */
 func TestGetGenesisHeadrStorage(t *testing.T) {

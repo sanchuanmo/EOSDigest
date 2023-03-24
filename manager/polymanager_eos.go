@@ -298,13 +298,14 @@ func (this *PolyManagerEOS) handleDepositEvents(height uint64) bool {
 				if uint64(states[2].(float64)) != this.config.EOSConfig.SideChainId {
 					continue
 				}
+
 				// 从Poly获取跨链交易证明
 				proof, err := this.polySdk.GetCrossStatesProof(hdr.Height-1, states[5].(string))
 				if err != nil {
 					log.Errorf("handleDepositEvents - failed to get proof for key %s: %v", states[5].(string), err)
 					continue
 				}
-				log.Infof("目标链----获取Poly的跨链交易证明----") //ToDo
+				// log.Infof("目标链----获取Poly的跨链交易证明----") //ToDo
 				auditpath, _ := hex.DecodeString(proof.AuditPath)
 				value, _, _, _ := tools.ParseAuditpath(auditpath)
 				param := &common2.ToMerkleValue{}
@@ -312,6 +313,14 @@ func (this *PolyManagerEOS) handleDepositEvents(height uint64) bool {
 					log.Errorf("handleDepositEvents - failed to deserialize MakeTxParam (value: %x, err: %v)", value, err)
 					continue
 				}
+				//ToDo
+				// log.Infof("目标链----->跨链交易目标链地址(byte):%v\n,目标链地址(string):%v", param.MakeTxParam.ToContractAddress, string(param.MakeTxParam.ToContractAddress))
+				// log.Infof("目标链----->跨链交易目标链ID(uint64):%v\n", param.MakeTxParam.ToChainID)
+				// log.Infof("目标链----->跨链交易目标链方法(byte):%v\n", param.MakeTxParam.Method)
+				// log.Infof("目标链----->跨链交易目标链属性(byte):%v\n", param.MakeTxParam.Args)
+				// log.Infof("目标链----->跨链交易起始链地址(byte):%v\n", param.MakeTxParam.FromContractAddress)
+				// log.Infof("目标链----->跨链交易起始链ID(byte):%v\n", param.MakeTxParam.CrossChainID)
+				//
 				var isTarget bool
 				// 向目标合约地址发送
 				if len(this.config.TargetContracts) > 0 {
@@ -338,7 +347,7 @@ func (this *PolyManagerEOS) handleDepositEvents(height uint64) bool {
 						continue
 					}
 				}
-				log.Infof("目标链----筛选满足起始链范围的跨链交易----") //ToDo
+				// log.Infof("目标链----筛选满足起始链范围的跨链交易----") //ToDo
 				cnt++
 				sender := this.selectSender()
 				log.Infof("sender %v is handling poly tx ( hash: %v, height: %d) ", sender.acc.AccountName, param.TxHash, height)
@@ -527,11 +536,11 @@ func (this *EOSSender) sendTxToEOS(info *EOSTxInfo) error {
 	case "verifyexetx":
 		var input contract.InputVerifyexetx
 		json.Unmarshal(info.txData, &input)
-		log.Infof("input crossChain Proof is:%v", input.Proof)
-		log.Infof("input crossChain RawHeader is:%v", input.RawHeader)
-		log.Infof("input crossChain HeaderProof is:%v", input.HeaderProof)
-		log.Infof("input crossChain CurRawHeader is:%v", input.CurRawHeader)
-		log.Infof("input crossChain HeaderSig is:%v", input.HeaderSig)
+		// log.Infof("input crossChain Proof is:%v", input.Proof)
+		// log.Infof("input crossChain RawHeader is:%v", input.RawHeader)
+		// log.Infof("input crossChain HeaderProof is:%v", input.HeaderProof)
+		// log.Infof("input crossChain CurRawHeader is:%v", input.CurRawHeader)
+		// log.Infof("input crossChain HeaderSig is:%v", input.HeaderSig)
 		testLog.Debugf("method:verifyexetx\nProof:%v\nRawHeader:%v\n,HeaderProof:%v\nCurRawHeader:%v\nHeaderSig:%v\n", input.Proof, input.RawHeader, input.HeaderProof, input.CurRawHeader, input.HeaderSig)
 		tx = eos.NewTransaction([]*eos.Action{basics.Verifyexetx(input.Proof, input.RawHeader, input.HeaderProof, input.CurRawHeader, input.HeaderSig)}, txOpts)
 	case "crosschain":
@@ -543,6 +552,7 @@ func (this *EOSSender) sendTxToEOS(info *EOSTxInfo) error {
 	}
 
 	// 签名并打包交易
+	// signedTx, packedTx, err := this.eosClient.SignTransaction(ctx, tx, txOpts.ChainID, eos.CompressionNone)
 	signedTx, packedTx, err := this.eosClient.SignTransaction(ctx, tx, txOpts.ChainID, eos.CompressionNone)
 	if err != nil {
 		log.Errorf("sign transaction: %v", err)
@@ -557,13 +567,16 @@ func (this *EOSSender) sendTxToEOS(info *EOSTxInfo) error {
 
 	// push打包后的签名交易
 	response, err := this.eosClient.PushTransaction(ctx, packedTx)
-	log.Infof("目标链----发送跨链交易到跨链管理合约----") //ToDo
+	// log.Infof("目标链----发送跨链交易到跨链管理合约----") //ToDo
 	if err != nil {
 		log.Errorf("push transaction:%v", err)
 		return err
 	}
+	// resStr, _ := json.Marshal(response)
 	log.Infof("目标链----发送跨链交易到跨链管理合约成功----") //ToDo
-	log.Infof("PushTransaction success, txId:%d", hex.EncodeToString(response.Processed.ID))
+	// log.Infof("PushTransaction success, txId:%d\n", hex.EncodeToString(response.Processed.ID))
+	log.Infof("---->PushTransaction success: nomal:%v\n", response)
+	// log.Infof("---->PushTransaction success: json:%v\n", string(resStr))
 
 	return nil
 }

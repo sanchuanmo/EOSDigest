@@ -30,10 +30,12 @@ import (
 const MAX_NUM = 1000 //最大数量1000
 
 var (
-	BKTCheck  = []byte("Check")  //检查
-	BKTRetry  = []byte("Retry")  //重试
-	BKTHeight = []byte("Height") //高度
-	BKTStatus = []byte("Status") //状态
+	BKTCheck       = []byte("Check")     //检查
+	BKTRetry       = []byte("Retry")     //重试
+	BKTHeight      = []byte("Height")    //高度
+	BKTStatus      = []byte("Status")    //状态
+	CrossInfoSend  = []byte("SendInfo")  //统计数据检查
+	CrossInfoRetry = []byte("RetryInfo") //统计数据重试
 )
 
 type BoltDB struct {
@@ -91,6 +93,28 @@ func NewBoltDB(filePath string) (*BoltDB, error) {
 
 	if err = db.Update(func(btx *bolt.Tx) error {
 		_, err := btx.CreateBucketIfNotExists(BKTStatus)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	if err = db.Update(func(btx *bolt.Tx) error {
+		_, err := btx.CreateBucketIfNotExists(CrossInfoSend)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	if err = db.Update(func(btx *bolt.Tx) error {
+		_, err := btx.CreateBucketIfNotExists(CrossInfoRetry)
 		if err != nil {
 			return err
 		}
@@ -310,4 +334,118 @@ func (w *BoltDB) Close() {
 	w.rwlock.Lock()
 	w.db.Close()
 	w.rwlock.Unlock()
+}
+
+// 添加统计数据表的处理函数
+// putCrossInfoCheck,deleteCrossInfoCheck,getAllCrossInfoCheck
+// putCrossInfoRetry,deleteCrossInfoRetry,getAllCrossInfoRetry
+
+func (w *BoltDB) PutCrossInfoSend(k []byte) error {
+	w.rwlock.Lock()
+	defer w.rwlock.Unlock()
+
+	return w.db.Update(func(btx *bolt.Tx) error {
+		bucket := btx.Bucket(CrossInfoSend)
+		err := bucket.Put(k, []byte{0x00})
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+func (w *BoltDB) DeleteCrossInfoSend(k []byte) error {
+	w.rwlock.Lock()
+	defer w.rwlock.Unlock()
+
+	return w.db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(CrossInfoSend)
+		err := bucket.Delete(k)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+func (w *BoltDB) GetAllCrossInfoSend() ([][]byte, error) {
+	w.rwlock.Lock()
+	defer w.rwlock.Unlock()
+
+	CrossInfoCheckList := make([][]byte, 0)
+	err := w.db.Update(func(tx *bolt.Tx) error {
+		bw := tx.Bucket(CrossInfoSend)
+		bw.ForEach(func(k, _ []byte) error {
+			_k := make([]byte, len(k))
+			copy(_k, k)
+			CrossInfoCheckList = append(CrossInfoCheckList, _k)
+			if len(CrossInfoCheckList) >= MAX_NUM {
+				return fmt.Errorf("max num")
+			}
+			return nil
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return CrossInfoCheckList, nil
+}
+
+func (w *BoltDB) PutCrossInfoRetry(k []byte) error {
+	w.rwlock.Lock()
+	defer w.rwlock.Unlock()
+
+	return w.db.Update(func(btx *bolt.Tx) error {
+		bucket := btx.Bucket(CrossInfoRetry)
+		err := bucket.Put(k, []byte{0x00})
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+func (w *BoltDB) DeleteCrossInfoRetry(k []byte) error {
+	w.rwlock.Lock()
+	defer w.rwlock.Unlock()
+
+	return w.db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(CrossInfoRetry)
+		err := bucket.Delete(k)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+func (w *BoltDB) GetAllCrossInfoRetry() ([][]byte, error) {
+	w.rwlock.Lock()
+	defer w.rwlock.Unlock()
+
+	CrossInfoRetryList := make([][]byte, 0)
+	err := w.db.Update(func(tx *bolt.Tx) error {
+		bw := tx.Bucket(CrossInfoRetry)
+		bw.ForEach(func(k, _ []byte) error {
+			_k := make([]byte, len(k))
+			copy(_k, k)
+			CrossInfoRetryList = append(CrossInfoRetryList, _k)
+			if len(CrossInfoRetryList) >= MAX_NUM {
+				return fmt.Errorf("max num")
+			}
+			return nil
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return CrossInfoRetryList, nil
 }

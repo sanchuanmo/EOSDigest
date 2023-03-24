@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	"github.com/polynetwork/poly/common"
 	"github.com/qqtou/eos-go"
 )
 
@@ -277,28 +278,88 @@ func (m *MerkleTree) ToString() error {
 /*
 验证默克尔证明
 */
+
 func VerifyLeaf(path [][]byte, leaf []byte) []byte {
 
-	if len(path) < 1 {
+	tempLeaf := make([]byte, 32)
+	tempPath := make([]byte, 32)
+	copy(tempLeaf, leaf)
+	for _, pa := range path {
+		copy(tempPath, pa)
+		if JudgeLeft(tempPath) {
+			tempLeaf = SignToRight(tempLeaf)
+			tempLeaf = CalculateNodeHash(tempPath, tempLeaf)
+		} else {
+			tempLeaf = SignToLeft(tempLeaf)
+			tempLeaf = CalculateNodeHash(tempLeaf, tempPath)
+		}
+	}
+	return tempLeaf
+}
 
-		return leaf
+// func VerifyLeaf(path [][]byte, leaf []byte) []byte {
+
+// 	if len(path) < 1 {
+
+// 		return leaf
+// 	}
+
+// 	pa := path[0]
+// 	path = path[1:]
+
+// 	var temp []byte
+// 	if JudgeLeft(pa) {
+// 		releaf := SignToRight(leaf)
+
+// 		temp = CalculateNodeHash(pa, releaf)
+
+// 	} else {
+// 		releaf := SignToLeft(leaf)
+
+// 		temp = CalculateNodeHash(releaf, pa)
+
+// 	}
+
+// 	return VerifyLeaf(path, temp)
+// }
+
+type EOSProof struct {
+	path [][]byte
+	leaf []byte
+}
+
+func (this *EOSProof) Serialization(sink *common.ZeroCopySink) {
+	sink.WriteBytes(this.leaf)
+	// fmt.Printf("Write leaf len is:%v\n", len(this.leaf))
+	for i := 0; i < len(this.path); i++ {
+		sink.WriteBytes(this.path[i])
+		// fmt.Printf("Write path %d is:%v\n", i, len(this.path[i]))
+	}
+}
+
+func (this *EOSProof) Deserialization(source *common.ZeroCopySource) error {
+	n := source.Len()
+	// fmt.Printf("source len is:%d", n)
+	if (n % 32) != 0 {
+		return fmt.Errorf("Deserialization error : len is illegal")
+	}
+	var path [][]byte
+	// var leaf []byte
+	leaf, eof := source.NextBytes(32)
+	if eof {
+		return fmt.Errorf("Waiting deserialize leaf error")
 	}
 
-	pa := path[0]
-	path = path[1:]
-
-	var temp []byte
-	if JudgeLeft(pa) {
-		releaf := SignToRight(leaf)
-
-		temp = CalculateNodeHash(pa, releaf)
-
-	} else {
-		releaf := SignToLeft(leaf)
-
-		temp = CalculateNodeHash(releaf, pa)
-
+	for i := 0; i < int(n/32)-1; i++ {
+		pa, eof := source.NextBytes(32)
+		fmt.Printf("the source the %d pa len is: %d\n", i+1, source.Len())
+		if eof {
+			return fmt.Errorf("Waiting deserialize %d path error", i)
+		}
+		path = append(path, pa)
 	}
 
-	return VerifyLeaf(path, temp)
+	this.leaf = leaf
+	this.path = path
+	return nil
 }

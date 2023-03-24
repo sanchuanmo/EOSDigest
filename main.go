@@ -28,6 +28,7 @@ import (
 	"github.com/polynetwork/eos_relayer/db"
 	"github.com/polynetwork/eos_relayer/log"
 	"github.com/polynetwork/eos_relayer/manager"
+	"github.com/polynetwork/eos_relayer/service"
 	sdk "github.com/polynetwork/poly-go-sdk"
 	eos "github.com/qqtou/eos-go"
 	"github.com/urfave/cli"
@@ -106,7 +107,8 @@ func startServer(ctx *cli.Context) {
 		log.Errorf("startServer - failed to setup eos client: %s", err)
 		return
 	}
-
+	// create collection server client
+	serviceClient := service.NewRpcClient().SetAddress(servConfig.CollectInfoConfig.RestURL)
 	var boltDB *db.BoltDB
 	if servConfig.BoltDbPath == "" {
 		boltDB, err = db.NewBoltDB("boltdb")
@@ -119,7 +121,7 @@ func startServer(ctx *cli.Context) {
 	}
 
 	initPolyServer(servConfig, polySdk, eosClient, boltDB)
-	initEOSServer(servConfig, polySdk, eosClient, boltDB)
+	initEOSServer(servConfig, polySdk, eosClient, boltDB, serviceClient)
 	waitToExit()
 }
 
@@ -147,8 +149,8 @@ func waitToExit() {
 	<-exit
 }
 
-func initEOSServer(servConfig *config.ServiceEOSConfig, polysdk *sdk.PolySdk, eosClient *eos.API, boltDB *db.BoltDB) {
-	mgr, err := manager.NewEOSManager(servConfig, StartHeight, StartForceHeight, polysdk, eosClient, boltDB)
+func initEOSServer(servConfig *config.ServiceEOSConfig, polysdk *sdk.PolySdk, eosClient *eos.API, boltDB *db.BoltDB, serviceClient *service.RpcClient) {
+	mgr, err := manager.NewEOSManager(servConfig, StartHeight, StartForceHeight, polysdk, eosClient, boltDB, serviceClient)
 	if err != nil {
 		log.Error("initEOSServer - eos service start err: %s", err.Error())
 		return
@@ -156,6 +158,8 @@ func initEOSServer(servConfig *config.ServiceEOSConfig, polysdk *sdk.PolySdk, eo
 	go mgr.MonitorEOSChain()
 	go mgr.MonitorDeposit()
 	go mgr.CheckDeposit()
+	go mgr.SendDepositCrossInfo()
+	go mgr.RetryDepositCrossInfo()
 }
 
 func initPolyServer(servConfig *config.ServiceEOSConfig, polysdk *sdk.PolySdk, eosClient *eos.API, boltDB *db.BoltDB) {

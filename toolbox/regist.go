@@ -426,8 +426,9 @@ func (this *EOSSender) sendTxToEOS(info *EOSTxInfo) error {
 
 	var input contract.InputInitgenblock
 	json.Unmarshal(info.txData, &input)
-	// fmt.Printf("json Unmarshal input, input is:%v", input)
-	// fmt.Printf("method:Initgenblock\nRawHeader:%v\nPubKeyList:%v\n", input.RawHeader, input.PubKeyList)
+	fmt.Printf("json Unmarshal input, input is:%v", input)
+
+	fmt.Printf("method:Initgenblock\nRawHeader:%v\nPubKeyList:%v\n", input.RawHeader, input.PubKeyList)
 	tx = eos.NewTransaction([]*eos.Action{basics.Initgenblock(input.RawHeader, input.PubKeyList)}, txOpts)
 
 	// 签名并打包交易

@@ -375,3 +375,70 @@ func TestSeDeProof(t *testing.T) {
 		fmt.Printf("success")
 	}
 }
+
+func TestCal2(t *testing.T) {
+	eosSdk := getEOSServer()
+	node := "2d21b3a3ccedd05977b5ad45b854dfefa2c0b4b4b539101cfc8a6549ea106da8"
+	block, _ := GetEOSBlockByNum(eosSdk, uint32(18193105))
+	fmt.Printf("block.Transactions[0].Transaction.ID: %v\n", block.Transactions[0].Transaction.ID)
+	nodeByte, _ := hex.DecodeString(node)
+	root := proof.CalculateNodeHash(proof.SignToLeft(nodeByte), proof.SignToRight(nodeByte))
+	fmt.Printf("root: %v\n", hex.EncodeToString(root))
+}
+
+func TestCalRoot(t *testing.T) {
+	eosSdk := getEOSServer()
+	// var ctx context.Context = context.Background()
+
+	block, _ := GetEOSBlockByNum(eosSdk, uint32(18561780)) //仅有一个transaction
+	// chainInfo, _ := eosSdk.GetInfo(ctx)
+	// chainID := []byte(chainInfo.ChainID)
+	var transactions [][]byte
+	for _, tr := range block.Transactions {
+		// transaction := tr.Transaction.Packed.Transaction
+		// 序列化
+		// trByte, _ := eos.MarshalBinary(transaction)
+		trByte := SerializationTrx(&tr)
+		fmt.Printf("[]byte(trByte): %v\n", []byte(trByte))
+		//
+		// transactions = append(transactions, buildTxDigest(chainID, []byte(trByte)))
+		transactions = append(transactions, proof.CalculateHash(trByte))
+	}
+	// 补2
+	transactions = append(transactions, transactions[len(transactions)-1])
+
+	fmt.Printf("len(transactions): %v\n", len(transactions))
+	fmt.Printf("proof.SignToLeft(transactions[0]): %v\n", proof.SignToLeft(proof.CalculateHash(transactions[0])))
+	fmt.Printf("proof.SignToRight(transactions[1]): %v\n", proof.SignToRight(proof.CalculateHash(transactions[1])))
+	calRoot := proof.CalculateNodeHash(proof.SignToLeft(proof.CalculateHash(transactions[0])), proof.SignToRight(proof.CalculateHash(transactions[1])))
+
+	fmt.Printf("root: %v\n", hex.EncodeToString(calRoot))
+	fmt.Printf("block.TransactionMRoot: %v\n", block.TransactionMRoot.String())
+}
+
+// func CalRoot(transactions [][]byte) {
+// 	if len(transactions)%2 == 1 {
+// 		transactions = append(transactions, transactions[len(transactions)-1])
+// 	}
+
+// 	for i := 0; i < len(transactions)%2; i++ {
+
+// 	}
+// }
+
+// 构造transaction Digest
+func buildTxDigest(chainID, transactionByte []byte) []byte {
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, chainID)
+	binary.Write(buf, binary.LittleEndian, transactionByte)
+	return buf.Bytes()
+}
+
+func SerializationTrx(transaction *eos.TransactionReceipt) []byte {
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, transaction.Status)
+	binary.Write(buf, binary.LittleEndian, transaction.CPUUsageMicroSeconds)
+	binary.Write(buf, binary.LittleEndian, transaction.NetUsageWords)
+	binary.Write(buf, binary.LittleEndian, []byte(transaction.Transaction.Packed.PackedTransaction))
+	return buf.Bytes()
+}

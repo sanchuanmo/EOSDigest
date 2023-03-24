@@ -22,11 +22,12 @@ const (
 )
 
 type ServiceEOSConfig struct {
-	PolyConfig      *PolyConfig
-	EOSConfig       *EOSConfig
-	BoltDbPath      string
-	RoutineNum      int64
-	TargetContracts []map[string]map[string][]uint64
+	PolyConfig        *PolyConfig
+	EOSConfig         *EOSConfig
+	CollectInfoConfig *CollectInfoConfig
+	BoltDbPath        string
+	RoutineNum        int64
+	TargetContracts   []map[string]map[string][]uint64
 }
 
 type PolyConfig struct {
@@ -44,6 +45,13 @@ type EOSConfig struct {
 	BlockConfig     uint64
 	StoreAccounts   []map[string]string
 	ContractAddress string
+}
+
+type CollectInfoConfig struct {
+	RestURL              string
+	MonitorInterval      uint64
+	RetryMonitorInterval uint64
+	ReSendNum            int
 }
 
 func ReadFile(fileName string) ([]byte, error) {

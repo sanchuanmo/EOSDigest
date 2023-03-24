@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	scom "github.com/polynetwork/poly/native/service/header_sync/common"
@@ -32,11 +33,20 @@ const (
 	CUREPOCHSTARTHEIGHT = "curEpochStartHeight"
 	COMKEEPERSPKBYTES   = "conKeepersPkBytes"
 	CROSSCONTRACTTABLE  = "polyglobal"
+	TRANSFEE            = 10000
 )
 
 type EOSProof struct {
 	path [][]byte
 	leaf []byte
+}
+
+func (this *EOSProof) GetPath() [][]byte {
+	return this.path
+}
+
+func (this *EOSProof) GetLeaf() []byte {
+	return this.leaf
 }
 
 func (this *EOSProof) Serialization(sink *common.ZeroCopySink) {
@@ -46,7 +56,8 @@ func (this *EOSProof) Serialization(sink *common.ZeroCopySink) {
 	}
 }
 
-func (this *EOSProof) Deserialization(source *common.ZeroCopySource) error {
+func (this *EOSProof) Deserialization(data []byte) error {
+	source := common.NewZeroCopySource(data)
 	n := source.Len()
 	if (n % 32) != 0 {
 		return fmt.Errorf("Deserialization error : len is illegal")
@@ -124,7 +135,7 @@ func GetEOSDeTraceData(eosSdk *eos.API, contractName eos.AccountName, actionName
 	var ctx context.Context = context.Background()
 	dataByte, err := hex.DecodeString(data)
 	if err != nil {
-		return nil, fmt.Errorf("GetEOSDeTraceData: DecodeString data err:%s", err)
+		return nil, fmt.Errorf("GetEOSDeTraceData: DecodeString data err: %s", err)
 	}
 	resp, err := eosSdk.ABIBinToJSON(ctx, contractName, actionName, dataByte)
 	if err != nil {
@@ -344,4 +355,14 @@ func TransInterfacesToBytes(data []interface{}) []byte {
 		dataBytes = append(dataBytes, byte(da.(float64)))
 	}
 	return dataBytes
+}
+
+func FeeStrToInt(fee string) (uint64, error) {
+	feevalue := strings.Split(fee, " ")[0]
+	feeDou, err := strconv.ParseFloat(feevalue, 64)
+	if err != nil {
+		return 0, err
+	}
+	return uint64(feeDou * TRANSFEE), nil
+
 }

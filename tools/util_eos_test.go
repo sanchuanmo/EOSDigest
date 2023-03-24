@@ -1,20 +1,31 @@
 package tools
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/polynetwork/eos_relayer/log"
 	"github.com/polynetwork/poly/common"
 	ccmcommon "github.com/polynetwork/poly/native/service/cross_chain_manager/common"
+	"github.com/qqtou/eos-go/ecc"
+
+	// "github.com/switcheo/tendermint/libs/json"
+
 	scom "github.com/polynetwork/poly/native/service/header_sync/common"
+	// scom "github.com/polynetwork/poly/native/service/cross_chain_manager/common"
 	autils "github.com/polynetwork/poly/native/service/utils"
-	"github.com/qqtou/eos-go"
+	eos "github.com/qqtou/eos-go"
+	//  "github.com/qqtou/eos-go/ecc"
 )
 
 var (
-	height      = 18561780
+	height      = 25271511
 	chainHeight = 19047110 //19044074
 )
 
@@ -147,15 +158,15 @@ func TestDeSerlizeTxData(t *testing.T) {
 	var resData []byte
 	for i, transaction := range res.Transactions {
 		for _, action := range transaction.Actions {
-			if action.Action != "onblock" {
-				log.Infof("---->the block height %d, transaction [%d] action is:%s account is:%s", height, i, action.Action, action.Account)
-			}
+			log.Infof("---->the block height %d, transaction [%d] action is:%s account is:%s", height, i, action.Action, action.Account)
 			if action.Action == "crosschaine" && action.Account == "ddcccmanager" {
 
-				resDatas, err := GetEOSDeTraceData(eosSdk, action.Account, eos.Name(action.Action), action.Data.(string))
+				resDatas, err := GetEOSDeTraceData(eosSdk, action.Account, eos.Name(action.Action), string(action.Data))
 				if err != nil {
 					log.Error("EOS filterCrossChainEvent - error: %s", err)
 				}
+				fmt.Printf("reflect.TypeOf(resDatas[\"rawParam\"]): %v\n", reflect.TypeOf(resDatas["rawParam"]))
+
 				resData = TransInterfacesToBytes(resDatas["rawParam"].([]interface{}))
 			} else {
 				continue
@@ -171,4 +182,126 @@ func TestDeSerlizeTxData(t *testing.T) {
 		log.Infof("deTxData Deserialization success. deTxData: %v", deTxData)
 	}
 
+}
+
+func TestDeserlizeFeeData(t *testing.T) {
+	eosSdk := getEOSServer()
+	res, err := GetEOSTraceBlockByNum(eosSdk, uint32(height))
+	if err != nil {
+		log.Errorf("EOS filterCrossChainEvent - error: %s", err)
+	}
+	// var resData []byte
+	for i, transaction := range res.Transactions {
+		for _, action := range transaction.Actions {
+			log.Infof("---->the block height %d, transaction [%d] action is:%s account is:%s", height, i, action.Action, action.Account)
+			if action.Action == "receiptpay" && action.Account == "ddc.contract" {
+				// log.Infof("----< the action data is:")
+				resDatas, err := GetEOSDeTraceData(eosSdk, action.Account, eos.Name(action.Action), hex.EncodeToString(action.Data))
+				if err != nil {
+					log.Errorf("EOS filterCrossChainEvent - error: %s", err)
+				}
+				fmt.Printf("reflect.TypeOf(resDatas[\"ddc_id\"]): %v\n", reflect.TypeOf(resDatas["ddc_id"]))
+				fmt.Printf("reflect.TypeOf(resDatas[\"account\"]): %v\n", reflect.TypeOf(resDatas["account"]))
+				fmt.Printf("reflect.TypeOf(resDatas[\"business_type\"]): %v\n", reflect.TypeOf(resDatas["business_type"]))
+				fmt.Printf("reflect.TypeOf(resDatas[\"func_name\"]): %v\n", reflect.TypeOf(resDatas["func_name"]))
+				fmt.Printf("reflect.TypeOf(resDatas[\"fee\"]): %v\n", reflect.TypeOf(resDatas["fee"]))
+				fmt.Printf("reflect.TypeOf(resDatas[\"balance\"]): %v\n", reflect.TypeOf(resDatas["balance"]))
+			} else {
+				continue
+			}
+		}
+	}
+}
+
+func TestMerkleDigest(t *testing.T) {
+	// eosSdk := getEOSServer()
+	// res, err := GetEOSBlockByNum(eosSdk, uint32(height))
+	// if err != nil {
+	// 	log.Errorf("EOS filterCrossChainEvent - error: %s", err)
+	// }
+	// res.BlockHeader.BlockID()
+	// resByte, err := json.Marshal(res)
+
+	// if err != nil {
+	// 	fmt.Printf("json.Marshal error:%s", err)
+	// }
+
+	// fmt.Printf("原始数据 resByte: %v\n", string(resByte))
+
+	// transactionDemo := res.Transactions[0]
+
+	// signatureDemo := transactionDemo.Transaction.Packed.Signatures[0]
+	// // slen := len(signature)
+
+	// context_free_dataDemo := transactionDemo.Transaction.Packed.PackedContextFreeData
+
+	// 计算prunable digest
+
+	signatureHexString := "SIG_K1_K3hnfDquC7uTenMKXKLsBUkKCgSEqbsazea5PyBtUELRoXMcjeZ1EiddAR5nFh6U8um5creXEMYG4Y2wxV8RpXvN3ukVzD"
+
+	// signatureByte, err := hex.DecodeString(signatureHexString)
+
+	// if err != nil {
+	// fmt.Printf("signatureHexString decodeString to Byte error:%s\n", err)
+	// }
+	var signatures []ecc.Signature
+	signature, err := ecc.NewSignature(signatureHexString)
+	signatures = append(signatures, signature)
+
+	if err != nil {
+		fmt.Printf("signatureByte trans to signature error: %s", err)
+	}
+
+	context_free_dataHexString := ""
+
+	context_free_data, err := hex.DecodeString(context_free_dataHexString)
+
+	if err != nil {
+		fmt.Printf("context_free_data decodeString error:%s\n", err)
+	}
+
+	var pru = &Prunable{
+		Signature:                signatures,
+		Packed_context_free_data: context_free_data,
+	}
+	pruByte, err := pru.Serialization()
+
+	pruJson, err := json.Marshal(pru)
+
+	if err != nil {
+		fmt.Printf("json.Marhsal pruJson error:%s\n", err)
+	}
+
+	pruJsonHash := sha256.Sum256(pruJson)
+
+	fmt.Printf("pruJsonHash: %v\n", hex.EncodeToString(pruJsonHash[:]))
+
+	if err != nil {
+		fmt.Printf("Prunable Serialization error:%s\n", err)
+	}
+	pruHash := sha256.Sum256(pruByte)
+	fmt.Printf("pruHash hexstring: %v\n", hex.EncodeToString(pruHash[:]))
+
+}
+
+type Prunable struct {
+	Signature                []ecc.Signature `signatures`
+	Packed_context_free_data eos.HexBytes
+}
+
+func (pru *Prunable) Serialization() ([]byte, error) {
+	buf := new(bytes.Buffer)
+	encoder := eos.NewEncoder(buf)
+	err := encoder.Encode(pru)
+	return buf.Bytes(), err
+}
+
+func TestFeeTrans(t *testing.T) {
+	fee := "0.0001 FEE"
+
+	feeInt, err := FeeStrToInt(fee)
+	if err != nil {
+		fmt.Printf("Fee str to int error:%v", err)
+	}
+	fmt.Printf("feeInt: %v\n", feeInt)
 }
