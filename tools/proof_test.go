@@ -300,7 +300,7 @@ func TestProofSD(t *testing.T) {
 	// fmt.Printf("Serialization proofByte is: %v\n", sink.Bytes())
 	// fmt.Printf("Serialization Proof len is: %d", len(sink.Bytes()))
 	proof2 := new(EOSProof)
-	err = proof2.Deserialization(common.NewZeroCopySource(sink.Bytes()))
+	err = proof2.Deserialization(common.NewZeroCopySource(sink.Bytes()).Bytes())
 	if err != nil {
 		fmt.Printf("Deserialization error: %v", err)
 	}

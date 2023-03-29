@@ -4,10 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"math/big"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -636,23 +634,11 @@ func (eosmanager *EOSManager) filterCrossChainEvent(height uint32, eosClient *eo
 				}
 				var feeData FeeActionData
 
-				feeData.ddcID = uint32(resPayData["ddc_id"].(float64))
-				log.Infof("feeData.account :%v", reflect.TypeOf(resPayData["account"]).Name())
-				feeData.account = resPayData["account"].(string)
-				log.Infof("feeData.business_type :%v", reflect.TypeOf(resPayData["business_type"]).Name())
-				feeData.businessType = uint32(resPayData["business_type"].(float64))
-				// log.Infof("feeData.func_name :%v", reflect.TypeOf(resPayData["func_name"]).Name())
-				// feeData.funcName = resPayData["fuc_name"].(string)// 转换有错误，待修复
-				log.Infof("feeData.fee :%v", reflect.TypeOf(resPayData["fee"]).Name())
 				feeData.fee = resPayData["fee"].(string)
-				log.Infof("feeData.balance :%v", reflect.TypeOf(resPayData["balance"]).Name())
-				feeData.balance = resPayData["balance"].(string)
-
 				txActionData.feeData = feeData
 
 			}
 			if action.Action == "crosschaine" && action.Account == "ddcccmanager" {
-				// log.Infof("起始链----筛选跨链事件:监听到发起跨链----") //ToDo
 				sig = true
 				resData, err := tools.GetEOSDeTraceData(eosClient, action.Account, eos.Name(action.Action), hex.EncodeToString([]byte(action.Data)))
 				if err != nil {
@@ -669,19 +655,12 @@ func (eosmanager *EOSManager) filterCrossChainEvent(height uint32, eosClient *eo
 				}
 				// 字节数组的hash
 				txActionData.toContract = ethcommon.BytesToAddress(tools.TransInterfacesToBytes(resData["toContract"].([]interface{}))).Hex() // 以太坊
-				// log.Infof("---->起始链筛选跨链事件的目标合约地址为：%s", txActionData.toContract)
-				// txActionData.toContract = string(tools.TransInterfacesToBytes(resData["toContract"].([]interface{}))) //EOS
+
 				txActionData.txHash = tools.TransInterfacesToBytes(resData["paramTxHash"].([]interface{}))
 				txActionData.caller = resData["caller"].(string) //wangzelong
-				// log.Infof("---->转换前<起始链筛选跨链事件的RawParam内容为: %v", resData["rawParam"].([]interface{})) //ToDo
+
 				txActionData.rawParam = tools.TransInterfacesToBytes(resData["rawParam"].([]interface{}))
-				// log.Infof("---->txActionData.rawParam: %v\n", txActionData.rawParam) //ToDo
-				// data := common.NewZeroCopySource(txActionData.rawParam)
-				// txParam := new(MakeTxParam)
-				// if err := txParam.Deserialization(data); err != nil {
-				// log.Errorf("<-->本地反序列化错误 error:%s", err)
-				// }
-				// log.Infof("---->筛选到的rawParam is :%v", txActionData.rawParam)
+
 				txActionData.txId = transaction.ID
 				trsByte := proof.SerializationTrans(resBlock.Transactions[i-1])
 				txActionData.leaf = trsByte
@@ -727,7 +706,6 @@ func (eosmanager *EOSManager) commitHeader() int {
 			return 1
 		}
 	}
-	// log.Infof("起始链----发起提交同步区块头----,提交区块头数量:%d,交易Hash为%s", len(this.header4sync), tx.ToHexString()) //ToDo
 	tick := time.NewTicker(100 * time.Millisecond)
 	var h uint32
 	for range tick.C {
@@ -737,9 +715,8 @@ func (eosmanager *EOSManager) commitHeader() int {
 			break
 		}
 	}
-	log.Infof("EOS commitHeader - send transaction %s to poly chain and confirmed on height %d", tx.ToHexString(), h)
-	log.Infof("起始链----提交同步区块头成功----,可在Poly链%d高度证明", h) //ToDo
-	eosmanager.header4sync = make([][]byte, 0)         // 提交后将header4sync数据归零
+	log.Infof("EOS commitHeader - commit abount %v block header %s to poly chain and confirmed on height %d", len(eosmanager.header4sync), tx.ToHexString(), h)
+	eosmanager.header4sync = make([][]byte, 0) // 提交后将header4sync数据归零
 	return 0
 }
 
@@ -846,13 +823,13 @@ func (eosmanager *EOSManager) handleLockDepositEvents(snycheight uint64) error {
 				continue
 			}
 		}
-		log.Infof("起始链----提交跨链交易（默克尔证明）----交易ID为:%v,Poly交易哈希为:%v", crosstx.txId, txHash) //ToDo
+		log.Infof("起始链----提交跨链交易（默克尔证明）----交易ID为:%v,Poly交易哈希为:%v", crosstx.txId, txHash)
 		// wangzelong 构造起始链DDC跨链信息
 		crossChainInfo, err := eosmanager.collectCrossChainInfo(crosstx.txIndex, crosstx.value, crosstx.filterTime, crosstx.fee, crosstx.caller)
 		if err != nil {
 			log.Errorf("EOS handleLockDepositEvents collectCrossChainInfo error:%s", err)
 		}
-		log.Infof("构造数据聚合服务跨链交易信息成功,CrossChain_id :%v ", crossChainInfo.CrossChain_id) //ToDo
+
 		//2.put crossInfo to CrossInfoSend db for checking
 		var sink = new(common.ZeroCopySink)
 		crossChainInfo.Serialization(sink)
@@ -876,15 +853,7 @@ func (eosmanager *EOSManager) handleLockDepositEvents(snycheight uint64) error {
 }
 
 func (eosmanager *EOSManager) commitProof(height uint32, proof []byte, value []byte, txhash []byte) (string, error) {
-	log.Infof("EOS commitProof -  height: %d\n, proof: %v\n, value: %v\n", height, proof, value)
 
-	// data := common.NewZeroCopySource(value)
-	// txParam := new(MakeTxParam)
-	// if err := txParam.Deserialization(data); err != nil {
-	// log.Errorf("<-->本地反序列化错误 error:%s", err)
-	// }
-
-	// log.Infof("---->调用前反序列化:%v", txParam)
 	tx, err := eosmanager.polySdk.Native.Ccm.ImportOuterTransfer(
 		eosmanager.config.EOSConfig.SideChainId,
 		value,
@@ -939,8 +908,7 @@ func (eosmanager *EOSManager) checkLockDepositEvents() error {
 				log.Errorf("EOS checkLockDepositEvents - this.db.PutRetry error:%s", err)
 			}
 		}
-		log.Infof("起始链----Poly出块,跨链交易成功,Poly交易Hash为:%v----", event.TxHash)             //ToDo
-		log.Infof("----------------------------22222222>当前出错次数为:%d", eosmanager.count) //ToDo
+		log.Infof("起始链----Poly出块,跨链交易成功,Poly交易Hash为:%v----", event.TxHash)
 		err = eosmanager.db.DeleteCheck(k)
 		if err != nil {
 			log.Errorf("EOS checkLockDepositEvents - this.db.DeleteRetry error:%s", err)
@@ -960,7 +928,6 @@ func (eosmanager *EOSManager) collectCrossChainInfo(txHash string, rawParam []by
 	if err := argParam.Deserialization(common.NewZeroCopySource(txParam.args)); err != nil {
 		return nil, fmt.Errorf("EOS collectCrossChainInfo deserilization ArgsParam error: %s", err)
 	}
-	log.Infof("--------------------args: %v\n", txParam.args)
 
 	crossInfo := service.NewCrossChainInfo()
 
@@ -989,28 +956,6 @@ func (eosmanager *EOSManager) collectCrossChainInfo(txHash string, rawParam []by
 	crossInfo.Cross_chain_fee = feeInt
 	crossInfo.Tx_time = filterTime //起始链发送捕获交易时间
 
-	fmt.Printf("crossInfo.Cross_chain_fee: %v\n", fee)
-	fmt.Printf("crossInfo.CrossChain_id: %v\n", crossInfo.CrossChain_id)
-	fmt.Printf("crossInfo.Cross_chain_fee: %v\n", crossInfo.Cross_chain_fee)
-	fmt.Printf("crossInfo.DDC_amount: %v\n", crossInfo.DDC_amount)
-	fmt.Printf("crossInfo.DDC_id: %v\n", crossInfo.DDC_id)
-	fmt.Printf("crossInfo.DDC_type: %v\n", crossInfo.DDC_type)
-	fmt.Printf("crossInfo.DDC_uri: %v\n", crossInfo.DDC_uri)
-	fmt.Printf("crossInfo.Dynamic_fee_tx: %v\n", crossInfo.Dynamic_fee_tx)
-	fmt.Printf("crossInfo.From_address: %v\n", crossInfo.From_address)
-	fmt.Printf("crossInfo.From_cc_addr: %v\n", crossInfo.From_cc_addr)
-	fmt.Printf("crossInfo.From_chainid: %v\n", crossInfo.From_chainid)
-	fmt.Printf("crossInfo.From_tx: %v\n", crossInfo.From_tx)
-	fmt.Printf("crossInfo.Poly_key: %v\n", crossInfo.Poly_key)
-	fmt.Printf("crossInfo.Poly_tx: %v\n", crossInfo.Poly_tx)
-	fmt.Printf("crossInfo.Sender: %v\n", crossInfo.Sender)
-	fmt.Printf("crossInfo.To_address: %v\n", crossInfo.To_address)
-	fmt.Printf("crossInfo.To_cc_addr: %v\n", crossInfo.To_cc_addr)
-	fmt.Printf("crossInfo.To_chainId: %v\n", crossInfo.To_chainId)
-	fmt.Printf("crossInfo.Tx_createtime: %v\n", crossInfo.Tx_createtime)
-	fmt.Printf("crossInfo.Tx_signer: %v\n", crossInfo.Tx_signer)
-	fmt.Printf("crossInfo.Tx_status: %v\n", crossInfo.Tx_status)
-	fmt.Printf("crossInfo.Tx_time: %v\n", crossInfo.Tx_time)
 	return crossInfo, nil
 }
 
@@ -1048,12 +993,6 @@ func (eosmanager *EOSManager) sendCrossChainMessage() error {
 			}
 			continue
 		}
-		crossInfoByte, err := json.Marshal(crossChainInfo)
-		if err != nil {
-			log.Errorf("sendCrossChainInfo json.Marshal crossInfo error: %s", err)
-		}
-		log.Infof("12345")
-		fmt.Printf("11111111111111SendCrossChainInfo data is:%v", string(crossInfoByte))
 		res, msg, err := eosmanager.serviceClient.SendCrossChainInfo(crossChainInfo)
 		log.Infof("<<<<<<<the service response is%v", res)
 		if err != nil {
@@ -1061,8 +1000,7 @@ func (eosmanager *EOSManager) sendCrossChainMessage() error {
 			continue
 		}
 		if res == "9002" {
-			log.Errorf("error format crossChainInfo:%v", crossChainInfo)
-			log.Errorf("EOS sendCrossChainMessage - Data content does not comform to the format, the crossChainId is:%v", crossChainInfo.CrossChain_id)
+			log.Errorf("EOS sendCrossChainMessage - Data content does not comform to the format, the crossChainId is:%v, the response is:%v", crossChainInfo.CrossChain_id, msg)
 			err := eosmanager.db.DeleteCrossInfoSend(v) // 数据格式不对，删除数据
 			if err != nil {
 				log.Errorf("EOS sendCrossChainMessage - this.db.DeleteCrossInfoSend error: %s", err)
@@ -1071,7 +1009,7 @@ func (eosmanager *EOSManager) sendCrossChainMessage() error {
 		}
 		if res == "9001" {
 			// 服务器无响应，重试两次
-			log.Infof("EOS sendCrossChainMessage - sendCrossChainMessage error msg is:%v", msg)
+			log.Infof("EOS sendCrossChainMessage - sendCrossChainMessage error msg is:%v, the crossChainId is:%v", msg, crossChainInfo.CrossChain_id)
 			reRes := eosmanager.reSendCrossChainMessage(crossChainInfo)
 			if reRes == "9001" { //重试两次失败，调用定时发送
 				// 记录放入CrossInfoRetry表
@@ -1161,7 +1099,7 @@ func (eosmanager *EOSManager) retrySendCrossChainMessage() error {
 			continue
 		}
 		if res == "9002" {
-			log.Errorf("EOS retrySendCrossChainMessage - Data content does not comform to the format,the crossChainId is:%v, error info is:%v ", crossChainInfo.CrossChain_id, msg)
+			log.Errorf("EOS retrySendCrossChainMessage - Data content does not comform to the format,the crossChainId is:%v, response info is:%v ", crossChainInfo.CrossChain_id, msg)
 			err = eosmanager.db.DeleteCrossInfoRetry(v)
 			if err != nil {
 				log.Errorf("EOS retrySendCrossChainMessage - this.db.DeleteCrossInfoRetry error: %s", err)
@@ -1169,7 +1107,7 @@ func (eosmanager *EOSManager) retrySendCrossChainMessage() error {
 			continue
 		}
 		if res == "9001" {
-			log.Errorf("EOS retrySendCrossChainMessage -Service not response,the crossChainId is:%v ,error info is:%v", crossChainInfo.CrossChain_id, msg)
+			log.Errorf("EOS retrySendCrossChainMessage -Service not response,the crossChainId is:%v ,response info is:%v", crossChainInfo.CrossChain_id, msg)
 			continue
 		}
 		if res == "0000" {

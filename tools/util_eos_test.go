@@ -2,10 +2,8 @@ package tools
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"testing"
@@ -211,77 +209,6 @@ func TestDeserlizeFeeData(t *testing.T) {
 			}
 		}
 	}
-}
-
-func TestMerkleDigest(t *testing.T) {
-	// eosSdk := getEOSServer()
-	// res, err := GetEOSBlockByNum(eosSdk, uint32(height))
-	// if err != nil {
-	// 	log.Errorf("EOS filterCrossChainEvent - error: %s", err)
-	// }
-	// res.BlockHeader.BlockID()
-	// resByte, err := json.Marshal(res)
-
-	// if err != nil {
-	// 	fmt.Printf("json.Marshal error:%s", err)
-	// }
-
-	// fmt.Printf("原始数据 resByte: %v\n", string(resByte))
-
-	// transactionDemo := res.Transactions[0]
-
-	// signatureDemo := transactionDemo.Transaction.Packed.Signatures[0]
-	// // slen := len(signature)
-
-	// context_free_dataDemo := transactionDemo.Transaction.Packed.PackedContextFreeData
-
-	// 计算prunable digest
-
-	signatureHexString := "SIG_K1_K3hnfDquC7uTenMKXKLsBUkKCgSEqbsazea5PyBtUELRoXMcjeZ1EiddAR5nFh6U8um5creXEMYG4Y2wxV8RpXvN3ukVzD"
-
-	// signatureByte, err := hex.DecodeString(signatureHexString)
-
-	// if err != nil {
-	// fmt.Printf("signatureHexString decodeString to Byte error:%s\n", err)
-	// }
-	var signatures []ecc.Signature
-	signature, err := ecc.NewSignature(signatureHexString)
-	signatures = append(signatures, signature)
-
-	if err != nil {
-		fmt.Printf("signatureByte trans to signature error: %s", err)
-	}
-
-	context_free_dataHexString := ""
-
-	context_free_data, err := hex.DecodeString(context_free_dataHexString)
-
-	if err != nil {
-		fmt.Printf("context_free_data decodeString error:%s\n", err)
-	}
-
-	var pru = &Prunable{
-		Signature:                signatures,
-		Packed_context_free_data: context_free_data,
-	}
-	pruByte, err := pru.Serialization()
-
-	pruJson, err := json.Marshal(pru)
-
-	if err != nil {
-		fmt.Printf("json.Marhsal pruJson error:%s\n", err)
-	}
-
-	pruJsonHash := sha256.Sum256(pruJson)
-
-	fmt.Printf("pruJsonHash: %v\n", hex.EncodeToString(pruJsonHash[:]))
-
-	if err != nil {
-		fmt.Printf("Prunable Serialization error:%s\n", err)
-	}
-	pruHash := sha256.Sum256(pruByte)
-	fmt.Printf("pruHash hexstring: %v\n", hex.EncodeToString(pruHash[:]))
-
 }
 
 type Prunable struct {
