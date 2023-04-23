@@ -8,7 +8,7 @@
 
 * [eosio_2.1.0-1](https://github.com/eosio/eos/releases/download/v2.1.0/eosio_2.1.0-1-ubuntu-18.04_amd64.deb)
 * [eosio.cdt v1.7.x](https://github.com/EOSIO/eosio.cdt/releases/tag/v1.7.0)
-* [openssl](https://github.com/openssl/openssl/releases/tag/OpenSSL_1_1_1t)
+* [openssl 1.1.1](https://github.com/openssl/openssl/releases/tag/OpenSSL_1_1_1t)
 
 
 ## 编译步骤
