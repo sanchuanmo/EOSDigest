@@ -7,12 +7,13 @@
 using namespace std;
 //transaction 各个属性转
 
-static std::map<std::string,uint8_t> mapStatus{{"executed",0},{"soft_fail",1},{"hard_fail",2},{"delayed",3},{"expired",4}};
 
 
-static std::map<std::string,uint8_t>mapCompression{{"none",0},{"zlib",1}};
+
+
 
 uint8_t tranStatus(string status){
+    std::map<std::string,uint8_t> mapStatus{{"executed",0},{"soft_fail",1},{"hard_fail",2},{"delayed",3},{"expired",4}};
     auto iter = mapStatus.find(status);
     if (iter!=mapStatus.end())
     {
@@ -23,6 +24,7 @@ uint8_t tranStatus(string status){
 
 
 uint8_t tranCompre(string compression){
+    std::map<std::string,uint8_t>mapCompression{{"none",0},{"zlib",1}};
     auto iter = mapCompression.find(compression);
     if (iter != mapCompression.end())
     {
