@@ -68,7 +68,7 @@ extern void _wrap_UCharVector_set_eosdigest_c7ff37f9a1eb71a5(uintptr_t arg1, swi
 extern void _wrap_delete_UCharVector_eosdigest_c7ff37f9a1eb71a5(uintptr_t arg1);
 extern swig_type_12 _wrap_eosServializationTxDigest_eosdigest_c7ff37f9a1eb71a5(swig_type_13 arg1, swig_intgo arg2, swig_intgo arg3, swig_type_14 arg4, uintptr_t arg5, uintptr_t arg6, uintptr_t arg7);
 #undef intgo
-#cgo LDFLAGS: -L${SRCDIR}/ -lcrypto
+#cgo LDFLAGS: -L${SRCDIR}/ -lcrypto -std=c++11
 */
 import "C"
 
