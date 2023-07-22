@@ -2,7 +2,6 @@ package eosdigest_test
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 
@@ -14,8 +13,8 @@ import (
 )
 
 var (
-	restURL        = "http://101.43.228.245:8888"
-	height  uint32 = 3138418
+	restURL        = "http://101.43.228.245:8766"
+	height  uint32 = 2765933
 )
 
 func GetEOSSdk() *eos.API {
@@ -76,6 +75,12 @@ func TestMerkleTree(t *testing.T) {
 	eosSdk := GetEOSSdk()
 	blockRsp, _ := GetEOSBlockByNum(eosSdk, height)
 
+	fmt.Printf("the block transaction num is:%v", len(blockRsp.Transactions))
+
+	if len(blockRsp.Transactions) < 1 {
+		panic("the block has no transaction")
+	}
+
 	var leafs [][]byte
 
 	for _, value := range blockRsp.Transactions {
@@ -85,13 +90,13 @@ func TestMerkleTree(t *testing.T) {
 		fmt.Printf("res: %v\n", res)
 	}
 
-	temp := append(leafs[0], leafs[len(leafs)-1]...)
+	// temp := append(leafs[0], leafs[len(leafs)-1]...)
 
-	enc := sha256.New()
+	// enc := sha256.New()
 
-	enc.Write(temp)
+	// enc.Write(temp)
 
-	fmt.Printf("enc.Sum(nil): %v\n", hex.EncodeToString(enc.Sum(nil)))
+	// fmt.Printf("enc.Sum(nil): %v\n", hex.EncodeToString(enc.Sum(nil)))
 
 }
 
