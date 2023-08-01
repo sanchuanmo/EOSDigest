@@ -1,7 +1,7 @@
 #include <iostream>
 #include <iomanip>
 #include <string>
-#include <openssl/sha.h>
+#include "./lib/openssl/include/openssl/sha.h"
 #include <vector>
 #include "sha256.hpp"
 #include "transactionargs.hpp"
